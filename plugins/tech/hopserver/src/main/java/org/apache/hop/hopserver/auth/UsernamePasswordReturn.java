@@ -18,13 +18,12 @@
 
 package org.apache.hop.hopserver.auth;
 
-public class UsernamePassword {
+public class UsernamePasswordReturn {
   private String username;
   private String password;
+  private String buttonPressed;
 
-  public UsernamePassword() {}
-
-  public UsernamePassword(String username, String password) {}
+  public UsernamePasswordReturn() {}
 
   public String getUsername() {
     return username;
@@ -40,5 +39,13 @@ public class UsernamePassword {
 
   public void setPassword(String password) {
     this.password = password;
+  }
+
+  public String getButtonPressed() {
+    return buttonPressed;
+  }
+
+  public void setButtonPressed(String buttonPressed) {
+    this.buttonPressed = buttonPressed;
   }
 }

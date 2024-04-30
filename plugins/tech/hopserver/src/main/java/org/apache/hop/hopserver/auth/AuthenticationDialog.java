@@ -24,6 +24,7 @@ import org.apache.hop.ui.core.PropsUi;
 import org.apache.hop.ui.core.dialog.BaseDialog;
 import org.apache.hop.ui.core.gui.GuiResource;
 import org.apache.hop.ui.core.gui.WindowProperty;
+import org.apache.hop.ui.core.widget.PasswordTextVar;
 import org.apache.hop.ui.pipeline.transform.BaseTransformDialog;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.layout.FormAttachment;
@@ -39,13 +40,13 @@ import org.eclipse.swt.widgets.Text;
 public class AuthenticationDialog extends Dialog {
   private static final Class<?> PKG = AuthenticationDialog.class; // For Translator
 
-  UsernamePassword usernamePassword = new UsernamePassword();
+  UsernamePasswordReturn usernamePasswordReturn = new UsernamePasswordReturn();
 
   private Shell shell;
   private final PropsUi props;
 
   private Text wUsername;
-  private Text wPassword;
+  private PasswordTextVar wPassword;
 
   private IVariables variables;
 
@@ -56,7 +57,7 @@ public class AuthenticationDialog extends Dialog {
     props = PropsUi.getInstance();
   }
 
-  public UsernamePassword open() {
+  public UsernamePasswordReturn open() {
 
     Shell parent = getParent();
 
@@ -111,7 +112,7 @@ public class AuthenticationDialog extends Dialog {
     fdlPassword.right = new FormAttachment(middle, 0);
     fdlPassword.top = new FormAttachment(lastControl, margin);
     wlPassword.setLayoutData(fdlPassword);
-    wPassword = new Text(shell, SWT.SINGLE | SWT.BORDER | SWT.LEFT);
+    wPassword = new PasswordTextVar(variables, shell, SWT.SINGLE | SWT.BORDER | SWT.LEFT);
     PropsUi.setLook(wPassword);
     FormData fdPassword = new FormData();
     fdPassword.left = new FormAttachment(middle, margin);
@@ -121,18 +122,19 @@ public class AuthenticationDialog extends Dialog {
 
     BaseDialog.defaultShellHandling(shell, c -> ok(), c -> cancel());
 
-    return usernamePassword;
+    return usernamePasswordReturn;
   }
 
   private void ok() {
-    usernamePassword.setUsername(wUsername.getText());
-    usernamePassword.setPassword(wPassword.getText());
+    usernamePasswordReturn.setUsername(wUsername.getText());
+    usernamePasswordReturn.setPassword(wPassword.getText());
+    usernamePasswordReturn.setButtonPressed("ok");
 
     dispose();
   }
 
   private void cancel() {
-
+    usernamePasswordReturn.setButtonPressed("cancel");
     dispose();
   }
 
