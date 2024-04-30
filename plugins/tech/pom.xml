@@ -58,6 +58,7 @@
                 <module>google</module>
                 <module>neo4j</module>
                 <module>parquet</module>
+                <module>hopserver</module>
             </modules>
         </profile>
 

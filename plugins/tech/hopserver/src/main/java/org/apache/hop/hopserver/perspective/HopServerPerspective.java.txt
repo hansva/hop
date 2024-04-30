@@ -1,0 +1,149 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.hop.hopserver.perspective;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import org.apache.hop.core.gui.plugin.GuiPlugin;
+import org.apache.hop.core.search.ISearchable;
+import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.ui.core.PropsUi;
+import org.apache.hop.ui.hopgui.HopGui;
+import org.apache.hop.ui.hopgui.context.IGuiContextHandler;
+import org.apache.hop.ui.hopgui.file.IHopFileType;
+import org.apache.hop.ui.hopgui.file.IHopFileTypeHandler;
+import org.apache.hop.ui.hopgui.perspective.HopPerspectivePlugin;
+import org.apache.hop.ui.hopgui.perspective.IHopPerspective;
+import org.apache.hop.ui.hopgui.perspective.TabItemHandler;
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.browser.Browser;
+import org.eclipse.swt.layout.GridData;
+import org.eclipse.swt.layout.GridLayout;
+import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Control;
+
+@HopPerspectivePlugin(
+    id = "HopServerPerspective",
+    name = "Hop Server",
+    description = "Hop Server",
+    image = "ui/images/server.svg")
+@GuiPlugin
+public class HopServerPerspective implements IHopPerspective {
+
+  public static final Class<?> PKG = HopServerPerspective.class;
+  public static final String ID_PERSPECTIVE_TOOLBAR_ITEM = "9900-perspective-hopserver";
+  private HopGui hopGui;
+  private Composite parent;
+  private Composite composite;
+  private Browser browser;
+
+  public HopServerPerspective() {}
+
+  @Override
+  public List<IGuiContextHandler> getContextHandlers() {
+    List<IGuiContextHandler> handlers = new ArrayList<>();
+    return handlers;
+  }
+
+  @Override
+  public String getId() {
+    return "HopServerPerspective";
+  }
+
+  @Override
+  public IHopFileTypeHandler getActiveFileTypeHandler() {
+    return null;
+  }
+
+  @Override
+  public void setActiveFileTypeHandler(IHopFileTypeHandler activeFileTypeHandler) {}
+
+  @Override
+  public List<IHopFileType> getSupportedHopFileTypes() {
+    return Collections.emptyList();
+  }
+
+  @Override
+  public void activate() {
+    hopGui.setActivePerspective(this);
+  }
+
+  @Override
+  public void perspectiveActivated() {
+    IVariables variables = hopGui.getVariables();
+    // browser.setUrl(variables.getVariable(HopServerUtils.HOP_SERVER_URL));
+    browser.refresh();
+  }
+
+  @Override
+  public void navigateToPreviousFile() {}
+
+  @Override
+  public void navigateToNextFile() {}
+
+  @Override
+  public boolean isActive() {
+    return hopGui.isActivePerspective(this);
+  }
+
+  @Override
+  public void initialize(HopGui hopGui, Composite parent) {
+    this.hopGui = hopGui;
+    this.parent = parent;
+
+    composite = new Composite(parent, SWT.NONE);
+    composite.setLayout(new GridLayout());
+    PropsUi.setLook(composite);
+
+    browser = new Browser(composite, SWT.NONE);
+    browser.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true));
+    composite.setLayoutData(browser);
+  }
+
+  @Override
+  public boolean hasNavigationPreviousFile() {
+    return false;
+  }
+
+  @Override
+  public boolean hasNavigationNextFile() {
+    return false;
+  }
+
+  @Override
+  public Control getControl() {
+    return composite;
+  }
+
+  @Override
+  public boolean remove(IHopFileTypeHandler typeHandler) {
+    return false;
+  }
+
+  @Override
+  public List<TabItemHandler> getItems() {
+    return null;
+  }
+
+  @Override
+  public List<ISearchable> getSearchables() {
+    List<ISearchable> searchables = new ArrayList<>();
+    return searchables;
+  }
+}
