@@ -31,6 +31,8 @@ import java.util.TimerTask;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.toolbar.GuiToolbarElement;
 import org.apache.hop.core.logging.LogChannel;
+import org.apache.hop.core.util.EnvUtil;
+import org.apache.hop.core.variables.Variable;
 import org.apache.hop.ui.hopgui.HopGui;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.MessageBox;
@@ -45,6 +47,10 @@ public class AuthenticationProvider {
   private static String clientId;
   private static UsernamePasswordReturn usernamePasswordReturn;
   private static IAuthenticationResult authenticationResult;
+
+  @Variable(
+      description = "The variable which Contains the client id used to authenticate to azure.")
+  public static final String AZURE_OAUTH_CLIENT_ID = "AZURE_OAUTH_CLIENT_ID";
 
   private static IAuthenticationResult acquireTokenUsernamePassword(
       PublicClientApplication pca,
@@ -85,7 +91,7 @@ public class AuthenticationProvider {
     // Load properties file and set properties used throughout the sample
     authority = "https://login.microsoftonline.com/organizations/";
     scope = Collections.singleton("user.read");
-    clientId = "b8de2f43-662f-477a-b0a1-3eb35c6e3481";
+    clientId = EnvUtil.getSystemProperty(AZURE_OAUTH_CLIENT_ID);
   }
 
   public String getAuthToken() {
@@ -138,7 +144,6 @@ public class AuthenticationProvider {
       LogChannel.UI.logDetailed("Account username: " + authenticationResult.account().username());
       LogChannel.UI.logDetailed("Access token: " + authenticationResult.accessToken());
       LogChannel.UI.logDetailed("Id token: " + authenticationResult.idToken());
-      System.out.println(authenticationResult.accessToken());
 
       // Add token
       setAuthToken(authenticationResult.accessToken());
@@ -154,7 +159,6 @@ public class AuthenticationProvider {
                 SilentParameters silentParameters =
                     SilentParameters.builder(scope).account(authenticationResult.account()).build();
                 authenticationResult = pca.acquireTokenSilently(silentParameters).join();
-                System.out.println(authenticationResult.accessToken());
               } catch (Exception e) {
 
               }
