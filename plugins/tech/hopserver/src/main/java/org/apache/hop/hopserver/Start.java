@@ -515,9 +515,9 @@ public class Start implements Runnable, IHasHopMetadataProvider {
       // Overwrite PROJECT_HOME
       configuration.getVariablesMap().put("PROJECT_HOME", projectFolder);
       HopServerUtils hopServerUtils = HopServerUtils.getInstance();
-      hopServerUtils.hopServerUrl = hopServerUrl;
-      hopServerUtils.hopServerToken = jwtToken;
-      hopServerUtils.hopExecutionId = executionBundleDto.getExecutionId().toString();
+      hopServerUtils.setHopServerUrl(hopServerUrl);
+      hopServerUtils.setServerToken(jwtToken);
+      hopServerUtils.setExecutionId(executionBundleDto.getExecutionId().toString());
 
     } catch (Exception e) {
       log.logError("Error parsing parameters", e);
@@ -586,7 +586,8 @@ public class Start implements Runnable, IHasHopMetadataProvider {
       }
 
       // Start workflow at action
-      if (!executionBundleDto.getStartAction().isEmpty()) {
+      if (executionBundleDto.getStartAction() != null
+          && !executionBundleDto.getStartAction().isEmpty()) {
         configuration.setStartActionName(executionBundleDto.getStartAction());
       }
 

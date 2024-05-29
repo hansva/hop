@@ -20,23 +20,23 @@ package org.apache.hop.hopserver.util;
 
 public final class HopServerUtils {
 
-  public static String hopExecutionId;
-  public static String hopServerToken;
-  public static String hopServerUrl;
-  private static HopServerUtils INSTANCE = new HopServerUtils();
+  private static String hopExecutionId;
+  private static String hopServerToken;
+  private static String hopServerUrl;
+  private static final HopServerUtils instance = new HopServerUtils();
 
   private HopServerUtils() {
-    if (INSTANCE != null) {
+    if (instance != null) {
       throw new IllegalStateException("Already instantiated");
     }
   }
 
   public static synchronized HopServerUtils getInstance() {
-    return INSTANCE;
+    return instance;
   }
 
   public boolean isEnabled() {
-    return !this.hopServerUrl.isEmpty() && !this.hopExecutionId.isEmpty();
+    return !hopServerUrl.isEmpty() && !hopExecutionId.isEmpty();
   }
 
   public static String getExecutionId() {
