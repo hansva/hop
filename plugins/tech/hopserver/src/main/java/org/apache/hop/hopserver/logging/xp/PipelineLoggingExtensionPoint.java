@@ -70,7 +70,6 @@ public class PipelineLoggingExtensionPoint
     // See if logging is enabled
     //
     HopServerUtils hopServerUtils = HopServerUtils.getInstance();
-    String test = hopServerUtils.hopServerToken;
     if (!hopServerUtils.isEnabled()) {
       return;
     }
@@ -171,17 +170,16 @@ public class PipelineLoggingExtensionPoint
       rootNode.put("status", pipelineStatus);
       rootNode.put("lastLoggingLineNr", lastNrInLogStore);
       ArrayNode logLinesNode = mapper.createArrayNode();
+      List<HopLoggingEvent> loggingEvents =
+          HopLogStore.getLogBufferFromTo(channel.getLogChannelId(), true, 0, lastNrInLogStore);
       for (int i = 0; i < lastNrInLogStore; i++) {
         ObjectNode logLineNode = mapper.createObjectNode();
         logLineNode.put("loggingLineNr", i);
-        List<HopLoggingEvent> loggingEvents =
-            HopLogStore.getLogBufferFromTo(channel.getLogChannelId(), true, i, i + 1);
-        for (HopLoggingEvent loggingEvent : loggingEvents) {
-          logLineNode.put(
-              "logDate", new SimpleDateFormat(DATE_FORMAT).format(loggingEvent.getTimeStamp()));
-          logLineNode.put("logLevel", loggingEvent.getLevel().getDescription());
-          logLineNode.put("message", loggingEvent.getMessage().toString());
-        }
+        HopLoggingEvent loggingEvent = loggingEvents.get(i);
+        logLineNode.put(
+            "logDate", new SimpleDateFormat(DATE_FORMAT).format(loggingEvent.getTimeStamp()));
+        logLineNode.put("logLevel", loggingEvent.getLevel().getDescription());
+        logLineNode.put("message", loggingEvent.getMessage().toString());
         logLinesNode.add(logLineNode);
       }
       rootNode.put("log", logLinesNode.toPrettyString());

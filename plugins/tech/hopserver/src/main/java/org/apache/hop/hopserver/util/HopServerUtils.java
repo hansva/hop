@@ -20,11 +20,10 @@ package org.apache.hop.hopserver.util;
 
 public final class HopServerUtils {
 
-  public String hopExecutionId;
-  public String hopServerToken;
-  public String hopServerUrl;
+  public static String hopExecutionId;
+  public static String hopServerToken;
+  public static String hopServerUrl;
   private static HopServerUtils INSTANCE = new HopServerUtils();
-  ;
 
   private HopServerUtils() {
     if (INSTANCE != null) {
@@ -36,38 +35,31 @@ public final class HopServerUtils {
     return INSTANCE;
   }
 
-  //  public  void setParameters(
-  //      String HOP_EXECUTION_ID, String HOP_SERVER_TOKEN, String HOP_SERVER_URL) {
-  //    HOP_EXECUTION_ID = HOP_EXECUTION_ID;
-  //    instance.HOP_SERVER_TOKEN = HOP_SERVER_TOKEN;
-  //    instance.HOP_SERVER_URL = HOP_SERVER_URL;
-  //  }
-
   public boolean isEnabled() {
     return !this.hopServerUrl.isEmpty() && !this.hopExecutionId.isEmpty();
   }
 
-  public String getExecutionId() {
+  public static String getExecutionId() {
     return hopExecutionId;
   }
 
-  public void setExecutionId(String hopExecutionId) {
-    this.hopExecutionId = hopExecutionId;
+  public static void setExecutionId(String hopExecutionId) {
+    HopServerUtils.hopExecutionId = hopExecutionId;
   }
 
-  public String getServerToken() {
+  public static String getServerToken() {
     return hopServerToken;
   }
 
-  public void setServerToken(String hopServerToken) {
-    this.hopServerToken = hopServerToken;
+  public static void setServerToken(String hopServerToken) {
+    HopServerUtils.hopServerToken = hopServerToken;
   }
 
-  public String getHopServerUrl() {
+  public static String getHopServerUrl() {
     return hopServerUrl;
   }
 
-  public void setHopServerUrl(String hopServerUrl) {
-    this.hopServerUrl = hopServerUrl;
+  public static void setHopServerUrl(String hopServerUrl) {
+    HopServerUtils.hopServerUrl = hopServerUrl;
   }
 }
