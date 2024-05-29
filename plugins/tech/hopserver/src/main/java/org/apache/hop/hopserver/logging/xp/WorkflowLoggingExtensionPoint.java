@@ -61,6 +61,7 @@ public class WorkflowLoggingExtensionPoint
   private static final String EXECUTION_TYPE_WORKFLOW = LoggingObjectType.WORKFLOW.name();
   private static final String EXECUTION_TYPE_ACTION = LoggingObjectType.ACTION.name();
   private static final String DATE_FORMAT = "yyyy/MM/dd'T'HH:mm:ss.SSSZ";
+  private static HopServerUtils hopServerUtils = HopServerUtils.getInstance();
 
   @Override
   public void callExtensionPoint(
@@ -69,14 +70,14 @@ public class WorkflowLoggingExtensionPoint
 
     // See if logging is enabled
     //
-    if (!HopServerUtils.isEnabled(workflow)) {
+    if (!hopServerUtils.isEnabled()) {
       return;
     }
 
     // Keep the start date
     //
     workflow.getExtensionDataMap().put(WORKFLOW_START_DATE, new Date());
-    String serverHost = HopServerUtils.getHopServerUrl();
+    String serverHost = hopServerUtils.getHopServerUrl();
     String endpoint = serverHost + "/v1/worker/";
 
     try {
@@ -129,7 +130,7 @@ public class WorkflowLoggingExtensionPoint
       int lastNrInLogStore = HopLogStore.getLastBufferLineNr();
 
       // Workflow information
-      rootNode.put("executionId", HopServerUtils.getExecutionId());
+      rootNode.put("executionId", hopServerUtils.getExecutionId());
       rootNode.put("type", EXECUTION_TYPE_WORKFLOW);
       rootNode.put("name", workflowMeta.getName());
       rootNode.put("status", workflowStatus);
@@ -250,7 +251,7 @@ public class WorkflowLoggingExtensionPoint
 
       HttpClient httpclient = HttpClients.createDefault();
       HttpPost httppost = new HttpPost(endpoint);
-      httppost.setHeader("Authorization", "Bearer " + HopServerUtils.getServerToken());
+      httppost.setHeader("Authorization", "Bearer " + hopServerUtils.getServerToken());
 
       HttpEntity requestEntity = new StringEntity(jsonString, ContentType.APPLICATION_JSON);
       httppost.setEntity(requestEntity);

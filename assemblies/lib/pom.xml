@@ -60,6 +60,11 @@
         </dependency>
         <dependency>
             <groupId>org.apache.hop</groupId>
+            <artifactId>hop-plugins-tech-hopserver</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.hop</groupId>
             <artifactId>hop-plugins-static-schema</artifactId>
             <version>${project.version}</version>
         </dependency>

@@ -18,48 +18,56 @@
 
 package org.apache.hop.hopserver.util;
 
-import org.apache.hop.core.variables.IVariables;
+public final class HopServerUtils {
 
-public class HopServerUtils {
+  public String hopExecutionId;
+  public String hopServerToken;
+  public String hopServerUrl;
+  private static HopServerUtils INSTANCE = new HopServerUtils();
+  ;
 
-  private static String HOP_EXECUTION_ID;
-  private static String HOP_SERVER_TOKEN;
-  private static String HOP_SERVER_URL;
-
-  public static boolean isEnabled(IVariables variables) {
-    if (HOP_EXECUTION_ID == null) {
-      return false;
-    }
-    return !HOP_SERVER_URL.isEmpty();
-  }
-
-  public static String getExecutionId() {
-    return HOP_EXECUTION_ID;
-  }
-
-  public static void setExecutionId(String executionId) {
-    if (HOP_EXECUTION_ID == null) {
-      HOP_EXECUTION_ID = executionId;
+  private HopServerUtils() {
+    if (INSTANCE != null) {
+      throw new IllegalStateException("Already instantiated");
     }
   }
 
-  public static String getServerToken() {
-    return HOP_SERVER_TOKEN;
+  public static synchronized HopServerUtils getInstance() {
+    return INSTANCE;
   }
 
-  public static void setServerToken(String serverToken) {
-    if (HOP_SERVER_TOKEN == null) {
-      HOP_SERVER_TOKEN = serverToken;
-    }
+  //  public  void setParameters(
+  //      String HOP_EXECUTION_ID, String HOP_SERVER_TOKEN, String HOP_SERVER_URL) {
+  //    HOP_EXECUTION_ID = HOP_EXECUTION_ID;
+  //    instance.HOP_SERVER_TOKEN = HOP_SERVER_TOKEN;
+  //    instance.HOP_SERVER_URL = HOP_SERVER_URL;
+  //  }
+
+  public boolean isEnabled() {
+    return !this.hopServerUrl.isEmpty() && !this.hopExecutionId.isEmpty();
   }
 
-  public static String getHopServerUrl() {
-    return HOP_SERVER_URL;
+  public String getExecutionId() {
+    return hopExecutionId;
   }
 
-  public static void setHopServerUrl(String hopServerUrl) {
-    if (HOP_SERVER_URL == null) {
-      HOP_SERVER_URL = hopServerUrl;
-    }
+  public void setExecutionId(String hopExecutionId) {
+    this.hopExecutionId = hopExecutionId;
+  }
+
+  public String getServerToken() {
+    return hopServerToken;
+  }
+
+  public void setServerToken(String hopServerToken) {
+    this.hopServerToken = hopServerToken;
+  }
+
+  public String getHopServerUrl() {
+    return hopServerUrl;
+  }
+
+  public void setHopServerUrl(String hopServerUrl) {
+    this.hopServerUrl = hopServerUrl;
   }
 }

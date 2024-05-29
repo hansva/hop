@@ -31,8 +31,6 @@ import java.util.TimerTask;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.toolbar.GuiToolbarElement;
 import org.apache.hop.core.logging.LogChannel;
-import org.apache.hop.core.util.EnvUtil;
-import org.apache.hop.core.variables.Variable;
 import org.apache.hop.ui.hopgui.HopGui;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.MessageBox;
@@ -47,9 +45,6 @@ public class AuthenticationProvider {
   private static String clientId;
   private static UsernamePasswordReturn usernamePasswordReturn;
   private static IAuthenticationResult authenticationResult;
-
-  @Variable(
-      description = "The variable which Contains the client id used to authenticate to azure.")
   public static final String AZURE_OAUTH_CLIENT_ID = "AZURE_OAUTH_CLIENT_ID";
 
   private static IAuthenticationResult acquireTokenUsernamePassword(
@@ -87,11 +82,10 @@ public class AuthenticationProvider {
    * hardcoded, for example values such as username/password would come from the user, and different
    * users may require different scopes
    */
-  private static void setUpSampleData() {
-    // Load properties file and set properties used throughout the sample
+  private static void setUpDefaultValues() {
     authority = "https://login.microsoftonline.com/organizations/";
-    scope = Collections.singleton("user.read");
-    clientId = EnvUtil.getSystemProperty(AZURE_OAUTH_CLIENT_ID);
+    scope = Collections.singleton("openid");
+    clientId = System.getenv(AZURE_OAUTH_CLIENT_ID);
   }
 
   public String getAuthToken() {
@@ -108,8 +102,7 @@ public class AuthenticationProvider {
       toolTip = "i18n::HopGui.Toolbar.Project.Edit.Tooltip",
       image = "ui/images/server.svg")
   public void editSelectedProject() {
-    setUpSampleData();
-
+    setUpDefaultValues();
     HopGui hopGui = HopGui.getInstance();
 
     try {
@@ -141,9 +134,10 @@ public class AuthenticationProvider {
               null,
               getUsernamePassword().getUsername(),
               getUsernamePassword().getPassword());
-      LogChannel.UI.logDetailed("Account username: " + authenticationResult.account().username());
-      LogChannel.UI.logDetailed("Access token: " + authenticationResult.accessToken());
-      LogChannel.UI.logDetailed("Id token: " + authenticationResult.idToken());
+      MessageBox mb = new MessageBox(hopGui.getActiveShell(), SWT.OK | SWT.ICON_INFORMATION);
+      mb.setText("Authenticated");
+      mb.setMessage("Authenticated");
+      mb.open();
 
       // Add token
       setAuthToken(authenticationResult.accessToken());
@@ -168,6 +162,10 @@ public class AuthenticationProvider {
 
     } catch (Exception e) {
       LogChannel.UI.logError("Error getting account details", e);
+      MessageBox mb = new MessageBox(hopGui.getActiveShell(), SWT.OK | SWT.ICON_ERROR);
+      mb.setText("Error Authenticating");
+      mb.setMessage("Could not Authenticate \n Reason: " + e.getMessage());
+      mb.open();
     }
   }
 

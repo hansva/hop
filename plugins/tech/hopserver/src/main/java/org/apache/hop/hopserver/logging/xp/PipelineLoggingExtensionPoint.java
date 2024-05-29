@@ -69,7 +69,9 @@ public class PipelineLoggingExtensionPoint
 
     // See if logging is enabled
     //
-    if (!HopServerUtils.isEnabled(pipeline)) {
+    HopServerUtils hopServerUtils = HopServerUtils.getInstance();
+    String test = hopServerUtils.hopServerToken;
+    if (!hopServerUtils.isEnabled()) {
       return;
     }
 
@@ -84,7 +86,7 @@ public class PipelineLoggingExtensionPoint
     //
     pipeline.getExtensionDataMap().put(PIPELINE_START_DATE, new Date());
 
-    String serverHost = HopServerUtils.getHopServerUrl();
+    String serverHost = hopServerUtils.getHopServerUrl();
     String endpoint = serverHost + "/v1/worker/";
 
     try {
@@ -159,7 +161,8 @@ public class PipelineLoggingExtensionPoint
       ObjectNode rootNode = mapper.createObjectNode();
       int lastNrInLogStore = HopLogStore.getLastBufferLineNr();
 
-      rootNode.put("executionId", HopServerUtils.getExecutionId());
+      HopServerUtils hopServerUtils = HopServerUtils.getInstance();
+      rootNode.put("executionId", hopServerUtils.getExecutionId());
       rootNode.put("type", EXECUTION_TYPE_PIPELINE);
       rootNode.put("name", pipelineMeta.getName());
       rootNode.put("description", pipelineMeta.getDescription());
@@ -258,7 +261,7 @@ public class PipelineLoggingExtensionPoint
 
       HttpEntity requestEntity = new StringEntity(jsonString, ContentType.APPLICATION_JSON);
       httppost.setEntity(requestEntity);
-      httppost.setHeader("Authorization", "Bearer " + HopServerUtils.getServerToken());
+      httppost.setHeader("Authorization", "Bearer " + hopServerUtils.getServerToken());
 
       // Execute and get the response.
       HttpResponse response = httpclient.execute(httppost);

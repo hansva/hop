@@ -201,7 +201,8 @@ public class Start implements Runnable, IHasHopMetadataProvider {
     log = new LogChannel("Start");
     log.setLogLevel(determineLogLevel());
     log.logDetailed("Start of execution");
-    log.logDetailed("Server that started the process: " + hopServerUrl);
+    // Print to console to pickup by logging agent but not to end user
+    System.out.println("Server that started the process: " + hopServerUrl);
 
     if (!getBundle()) {
       updateExecutionStatus(ExecutionStatus.FAILED);
@@ -250,12 +251,12 @@ public class Start implements Runnable, IHasHopMetadataProvider {
   private void calculateRealFilename() {
     realFilename = variables.resolve(filename);
     realFilename = projectFolder + File.separator + realFilename;
-    log.logBasic("Starting following filename: " + realFilename);
   }
 
   private boolean updateExecutionStatus(ExecutionStatus status) {
     String endpoint = hopServerUrl + "/v1/worker/updateStatus";
-    log.logDetailed("updating execution status to: " + status + "on endpoint" + endpoint);
+    // Print to console to pickup by logging agent but not to end user
+    System.out.println("updating execution status to: " + status + " on endpoint " + endpoint);
 
     try (CloseableHttpClient httpclient = HttpClients.createDefault()) {
       HttpPost httppost = new HttpPost(endpoint);
@@ -281,7 +282,8 @@ public class Start implements Runnable, IHasHopMetadataProvider {
 
   private boolean getBundle() {
     String endpoint = hopServerUrl + "/v1/worker/executionBundle";
-    log.logDetailed("Fetching Bundle from : " + endpoint);
+    // Print to console to pickup by logging agent but not to end user
+    System.out.println("Fetching Bundle from : " + endpoint);
 
     try (CloseableHttpClient httpclient = HttpClients.createDefault()) {
       HttpGet httpGet = new HttpGet(endpoint);
@@ -298,7 +300,8 @@ public class Start implements Runnable, IHasHopMetadataProvider {
       UUID uuid = UUID.randomUUID();
       String tmpDir = System.getProperty("java.io.tmpdir") + "/" + uuid.toString();
       setProjectFolder(tmpDir);
-      log.logDetailed("project location: " + tmpDir);
+      // Print to console to pickup by logging agent but not to end user
+      System.out.println("project location: " + tmpDir);
 
       byte[] buffer = new byte[1024];
       ZipInputStream zis =
@@ -330,7 +333,8 @@ public class Start implements Runnable, IHasHopMetadataProvider {
         SerializableMetadataProvider exportedProvider = new SerializableMetadataProvider(json);
         metadataProvider.getProviders().add(exportedProvider);
 
-        log.logBasic("Metadata provider is now: " + metadataProvider.getDescription());
+        // Print to console to pickup by logging agent but not to end user
+        System.out.println("Metadata provider is now: " + metadataProvider.getDescription());
       }
 
       if (response.getStatusLine().getStatusCode() >= 400) {
@@ -510,10 +514,10 @@ public class Start implements Runnable, IHasHopMetadataProvider {
 
       // Overwrite PROJECT_HOME
       configuration.getVariablesMap().put("PROJECT_HOME", projectFolder);
-      configuration.getVariablesMap().put("HOP_SERVER_URL", hopServerUrl);
-      HopServerUtils.setHopServerUrl(hopServerUrl);
-      HopServerUtils.setExecutionId(executionBundleDto.getExecutionId().toString());
-      HopServerUtils.setServerToken(jwtToken);
+      HopServerUtils hopServerUtils = HopServerUtils.getInstance();
+      hopServerUtils.hopServerUrl = hopServerUrl;
+      hopServerUtils.hopServerToken = jwtToken;
+      hopServerUtils.hopExecutionId = executionBundleDto.getExecutionId().toString();
 
     } catch (Exception e) {
       log.logError("Error parsing parameters", e);
