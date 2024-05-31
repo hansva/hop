@@ -36,7 +36,10 @@ public final class HopServerUtils {
   }
 
   public boolean isEnabled() {
-    return !hopServerUrl.isEmpty() && !hopExecutionId.isEmpty();
+    if (hopExecutionId == null || hopServerToken == null || hopServerUrl == null) {
+      return false;
+    }
+    return true;
   }
 
   public static String getExecutionId() {
