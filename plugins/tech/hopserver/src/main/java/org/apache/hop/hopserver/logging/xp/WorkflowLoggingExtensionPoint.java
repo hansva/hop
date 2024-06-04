@@ -137,6 +137,7 @@ public class WorkflowLoggingExtensionPoint
       rootNode.put("description", workflowMeta.getDescription());
       rootNode.put("filename", workflowMeta.getFilename());
       rootNode.put("workflowPipelineLogChannelId", channel.getLogChannelId());
+      rootNode.put("lastLoggingLineNr", lastNrInLogStore);
       ArrayNode logLinesNode = mapper.createArrayNode();
       List<HopLoggingEvent> loggingEvents =
           HopLogStore.getLogBufferFromTo(channel.getLogChannelId(), true, 0, lastNrInLogStore);
