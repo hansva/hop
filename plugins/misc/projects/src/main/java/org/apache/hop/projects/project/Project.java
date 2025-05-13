@@ -61,6 +61,7 @@ import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.transform.TransformMeta;
 import org.apache.hop.projects.config.ProjectsConfig;
 import org.apache.hop.projects.config.ProjectsConfigSingleton;
+import org.apache.hop.projects.environment.LifecycleEnvironment;
 import org.apache.hop.projects.util.Defaults;
 import org.apache.hop.projects.util.ProjectsUtil;
 import org.apache.hop.workflow.WorkflowMeta;
@@ -95,6 +96,8 @@ public class Project extends ConfigFile implements IConfigFile {
   private Map<PipelineMeta, List<TransformMeta>> pipelineTransformsMap;
 
   private Map<WorkflowMeta, List<ActionMeta>> workflowActionsMap;
+
+  private List<LifecycleEnvironment> lifecycleEnvironments;
 
   public Project() {
     super();
@@ -150,6 +153,8 @@ public class Project extends ConfigFile implements IConfigFile {
       this.enforcingExecutionInHome = project.enforcingExecutionInHome;
       this.configMap = project.configMap;
       this.parentProjectName = project.parentProjectName;
+      this.lifecycleEnvironments =
+          project.lifecycleEnvironments == null ? new ArrayList<>() : project.lifecycleEnvironments;
     } catch (Exception e) {
       throw new HopException(
           "Error saving project configuration to file '" + configFilename + "'", e);
@@ -755,5 +760,37 @@ public class Project extends ConfigFile implements IConfigFile {
 
   public void setMetadataProvider(MultiMetadataProvider metadataProvider) {
     this.metadataProvider = metadataProvider;
+  }
+
+  public List<LifecycleEnvironment> getLifecycleEnvironments() {
+    return this.lifecycleEnvironments;
+  }
+
+  public void setLifecycleEnvironments(List<LifecycleEnvironment> lifecycleEnvironments) {
+    this.lifecycleEnvironments = lifecycleEnvironments;
+  }
+
+  public boolean addEnvironment(LifecycleEnvironment environment) {
+    ProjectsConfig config = ProjectsConfigSingleton.getConfig();
+    if (!config.isSaveEnvironmentsInProjectConfig()) {
+      return false;
+    }
+
+    int index = lifecycleEnvironments.indexOf(environment);
+    if (index < 0) {
+      lifecycleEnvironments.add(environment);
+    } else {
+      lifecycleEnvironments.set(index, environment);
+    }
+    return true;
+  }
+
+  public boolean removeEnvironment(LifecycleEnvironment environment) {
+    ProjectsConfig config = ProjectsConfigSingleton.getConfig();
+    if (!config.isSaveEnvironmentsInProjectConfig()) {
+      return false;
+    }
+    this.lifecycleEnvironments.remove(environment);
+    return true;
   }
 }

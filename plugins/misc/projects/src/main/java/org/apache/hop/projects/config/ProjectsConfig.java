@@ -22,9 +22,13 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import org.apache.commons.lang.StringUtils;
+import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.projects.environment.LifecycleEnvironment;
 import org.apache.hop.projects.lifecycle.ProjectLifecycle;
+import org.apache.hop.projects.project.Project;
 import org.apache.hop.projects.project.ProjectConfig;
+import org.apache.hop.ui.hopgui.HopGui;
 
 @JsonIgnoreProperties(value = {"openingLastProjectAtStartup"})
 public class ProjectsConfig {
@@ -37,6 +41,7 @@ public class ProjectsConfig {
   private boolean projectMandatory;
   private boolean environmentMandatory;
   private boolean environmentsForActiveProject;
+  private boolean saveEnvironmentsInProjectConfig;
   private String defaultProject;
   private String defaultEnvironment;
   private String standardParentProject;
@@ -69,6 +74,8 @@ public class ProjectsConfig {
     standardProjectsFolder = config.standardProjectsFolder;
     defaultProjectConfigFile = config.defaultProjectConfigFile;
     environmentsForActiveProject = config.environmentsForActiveProject;
+    saveEnvironmentsInProjectConfig = config.isSaveEnvironmentsInProjectConfig();
+    syncLifecycleEnvironmentsWithProjectConfigs();
   }
 
   public ProjectConfig findProjectConfig(String projectName) {
@@ -145,19 +152,43 @@ public class ProjectsConfig {
     return null;
   }
 
-  public void addEnvironment(LifecycleEnvironment environment) {
+  public void addEnvironment(LifecycleEnvironment environment) throws HopException {
     int index = lifecycleEnvironments.indexOf(environment);
     if (index < 0) {
       lifecycleEnvironments.add(environment);
     } else {
       lifecycleEnvironments.set(index, environment);
     }
+
+    ProjectConfig projectConfig = findProjectConfig(environment.getProjectName());
+    if (projectConfig == null) {
+      throw new HopException("Project '" + environment.getProjectName() + "' not found");
+    }
+
+    HopGui hopGui = HopGui.getInstance();
+    IVariables variables = hopGui.getVariables();
+    Project project = projectConfig.loadProject(variables);
+    if (project.addEnvironment(new LifecycleEnvironment(environment))) {
+      project.saveToFile();
+    }
   }
 
-  public LifecycleEnvironment removeEnvironment(String environmentName) {
+  public LifecycleEnvironment removeEnvironment(String environmentName) throws HopException {
     LifecycleEnvironment environment = findEnvironment(environmentName);
     if (environment != null) {
       lifecycleEnvironments.remove(environment);
+
+      ProjectConfig projectConfig = findProjectConfig(environment.getProjectName());
+      if (projectConfig == null) {
+        throw new HopException("Project '" + environment.getProjectName() + "' not found");
+      }
+
+      HopGui hopGui = HopGui.getInstance();
+      IVariables variables = hopGui.getVariables();
+      Project project = projectConfig.loadProject(variables);
+      if (project.removeEnvironment(environment)) {
+        project.saveToFile();
+      }
     }
     return environment;
   }
@@ -231,6 +262,39 @@ public class ProjectsConfig {
             lifecycleName,
             Collections.emptyList(),
             Collections.emptyList())); // Only considers the name
+  }
+
+  private void syncLifecycleEnvironmentsWithProjectConfigs() {
+    if (!saveEnvironmentsInProjectConfig) {
+      return;
+    }
+
+    HopGui hopGui = HopGui.getInstance();
+    IVariables variables = hopGui.getVariables();
+    for (ProjectConfig projectConfig : projectConfigurations) {
+      try {
+        Project project = projectConfig.loadProject(variables);
+        if (project != null) {
+          for (LifecycleEnvironment environment : project.getLifecycleEnvironments()) {
+            int index = lifecycleEnvironments.indexOf(environment);
+            if (index < 0) {
+              lifecycleEnvironments.add(new LifecycleEnvironment(environment));
+            } else {
+              lifecycleEnvironments.set(index, new LifecycleEnvironment(environment));
+            }
+          }
+
+          // copy the environments from hop-config to the project configurations
+          for (LifecycleEnvironment environment : lifecycleEnvironments) {
+            if (projectConfig.getProjectHome().equalsIgnoreCase(environment.getProjectName())) {
+              project.addEnvironment(new LifecycleEnvironment(environment));
+            }
+          }
+        }
+      } catch (HopException e) {
+        // Ignore the exception
+      }
+    }
   }
 
   /**
@@ -423,5 +487,13 @@ public class ProjectsConfig {
    */
   public void setEnvironmentsForActiveProject(boolean environmentsForActiveProject) {
     this.environmentsForActiveProject = environmentsForActiveProject;
+  }
+
+  public boolean isSaveEnvironmentsInProjectConfig() {
+    return saveEnvironmentsInProjectConfig;
+  }
+
+  public void setSaveEnvironmentsInProjectConfig(boolean saveEnvironmentsInProjectConfig) {
+    this.saveEnvironmentsInProjectConfig = saveEnvironmentsInProjectConfig;
   }
 }

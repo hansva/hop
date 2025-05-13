@@ -67,6 +67,8 @@ public class ProjectsConfigOptionPlugin
       "10070-restrict-environments-to-active-project";
   private static final String WIDGET_ID_DEFAULT_PROJECT_CONFIG_FILENAME =
       "10070-default-project-config-filename";
+  private static final String WIDGET_ID_SAVE_ENVIRONMENTS_IN_PROJECT_CONFIG =
+      "10080-save-environments-in-project-config";
 
   @GuiWidgetElement(
       id = WIDGET_ID_ENABLE_PROJECTS,
@@ -167,6 +169,17 @@ public class ProjectsConfigOptionPlugin
       description = "Restrict environment list to active project")
   private Boolean environmentsForActiveProject;
 
+  @GuiWidgetElement(
+      id = WIDGET_ID_SAVE_ENVIRONMENTS_IN_PROJECT_CONFIG,
+      parentId = ConfigPluginOptionsTab.GUI_WIDGETS_PARENT_ID,
+      type = GuiElementType.CHECKBOX,
+      variables = false,
+      label = "i18n::ProjectConfig.SaveEnvsInProjectConfig.Message")
+  @CommandLine.Option(
+      names = {"-epc", "--environments-in-project-config"},
+      description = "i18n::ProjectConfig.SaveEnvsInProjectConfig.Description")
+  private Boolean saveEnvironmentsInProjectConfig;
+
   /**
    * Gets instance
    *
@@ -185,6 +198,7 @@ public class ProjectsConfigOptionPlugin
     instance.standardProjectsFolder = config.getStandardProjectsFolder();
     instance.defaultProjectConfigFile = config.getDefaultProjectConfigFile();
     instance.environmentsForActiveProject = config.isEnvironmentsForActiveProject();
+    instance.saveEnvironmentsInProjectConfig = config.isSaveEnvironmentsInProjectConfig();
     return instance;
   }
 
@@ -263,6 +277,14 @@ public class ProjectsConfigOptionPlugin
         } else {
           log.logBasic("Listing all environments, regardless of the active project");
         }
+        changed = true;
+      }
+      if (saveEnvironmentsInProjectConfig != null) {
+        config.setSaveEnvironmentsInProjectConfig(saveEnvironmentsInProjectConfig);
+        log.logBasic(
+            "Saving environments in project-config.json is set to '"
+                + saveEnvironmentsInProjectConfig
+                + "'");
         changed = true;
       }
       // Save to file if anything changed
@@ -367,6 +389,11 @@ public class ProjectsConfigOptionPlugin
           environmentsForActiveProject = ((Button) control).getSelection();
           ProjectsConfigSingleton.getConfig()
               .setEnvironmentsForActiveProject(environmentsForActiveProject);
+          break;
+        case WIDGET_ID_SAVE_ENVIRONMENTS_IN_PROJECT_CONFIG:
+          saveEnvironmentsInProjectConfig = ((Button) control).getSelection();
+          ProjectsConfigSingleton.getConfig()
+              .setSaveEnvironmentsInProjectConfig(saveEnvironmentsInProjectConfig);
           break;
       }
     }
@@ -525,6 +552,22 @@ public class ProjectsConfigOptionPlugin
    */
   public void setEnvironmentsForActiveProject(Boolean environmentsForActiveProject) {
     this.environmentsForActiveProject = environmentsForActiveProject;
+  }
+
+  /**
+   * Gets saveEnvironmentsInProjectConfig
+   *
+   * @return value of saveEnvironmentsInProjectConfig
+   */
+  public Boolean getSaveEnvironmentsInProjectConfig() {
+    return saveEnvironmentsInProjectConfig;
+  }
+
+  /**
+   * @param saveEnvironmentsInProjectConfig The saveEnvironmentsInProjectConfig flag to set
+   */
+  public void setSaveEnvironmentsInProjectConfig(Boolean saveEnvironmentsInProjectConfig) {
+    this.saveEnvironmentsInProjectConfig = saveEnvironmentsInProjectConfig;
   }
 
   /**
