@@ -23,6 +23,7 @@ import org.apache.commons.vfs2.FileObject;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.core.vfs.HopVfs;
+import org.apache.hop.projects.environment.LifecycleEnvironment;
 
 public class ProjectConfig {
 
@@ -159,5 +160,21 @@ public class ProjectConfig {
    */
   public void setConfigFilename(String configFilename) {
     this.configFilename = configFilename;
+  }
+
+  public void addEnvironment(LifecycleEnvironment environment, IVariables variables)
+      throws HopException {
+    Project project = loadProject(variables);
+    if (project.addEnvironment(environment)) {
+      project.saveToFile();
+    }
+  }
+
+  public void removeEnvironment(LifecycleEnvironment environment, IVariables variables)
+      throws HopException {
+    Project project = loadProject(variables);
+    if (project.removeEnvironment(environment)) {
+      project.saveToFile();
+    }
   }
 }

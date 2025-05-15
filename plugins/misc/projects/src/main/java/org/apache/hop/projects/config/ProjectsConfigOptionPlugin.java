@@ -189,6 +189,7 @@ public class ProjectsConfigOptionPlugin
     ProjectsConfigOptionPlugin instance = new ProjectsConfigOptionPlugin();
 
     ProjectsConfig config = ProjectsConfigSingleton.getConfig();
+    config.syncLifecycleEnvironmentsWithProjectConfigs();
     instance.projectsEnabled = config.isEnabled();
     instance.defaultProject = config.getDefaultProject();
     instance.defaultEnvironment = config.getDefaultEnvironment();

@@ -74,8 +74,7 @@ public class ProjectsConfig {
     standardProjectsFolder = config.standardProjectsFolder;
     defaultProjectConfigFile = config.defaultProjectConfigFile;
     environmentsForActiveProject = config.environmentsForActiveProject;
-    saveEnvironmentsInProjectConfig = config.isSaveEnvironmentsInProjectConfig();
-    syncLifecycleEnvironmentsWithProjectConfigs();
+    saveEnvironmentsInProjectConfig = config.saveEnvironmentsInProjectConfig;
   }
 
   public ProjectConfig findProjectConfig(String projectName) {
@@ -164,13 +163,9 @@ public class ProjectsConfig {
     if (projectConfig == null) {
       throw new HopException("Project '" + environment.getProjectName() + "' not found");
     }
-
     HopGui hopGui = HopGui.getInstance();
     IVariables variables = hopGui.getVariables();
-    Project project = projectConfig.loadProject(variables);
-    if (project.addEnvironment(new LifecycleEnvironment(environment))) {
-      project.saveToFile();
-    }
+    projectConfig.addEnvironment(new LifecycleEnvironment(environment), variables);
   }
 
   public LifecycleEnvironment removeEnvironment(String environmentName) throws HopException {
@@ -182,13 +177,9 @@ public class ProjectsConfig {
       if (projectConfig == null) {
         throw new HopException("Project '" + environment.getProjectName() + "' not found");
       }
-
       HopGui hopGui = HopGui.getInstance();
       IVariables variables = hopGui.getVariables();
-      Project project = projectConfig.loadProject(variables);
-      if (project.removeEnvironment(environment)) {
-        project.saveToFile();
-      }
+      projectConfig.removeEnvironment(environment, variables);
     }
     return environment;
   }
@@ -264,35 +255,50 @@ public class ProjectsConfig {
             Collections.emptyList())); // Only considers the name
   }
 
-  private void syncLifecycleEnvironmentsWithProjectConfigs() {
+  public void syncLifecycleEnvironmentsWithProjectConfigs() {
     if (!saveEnvironmentsInProjectConfig) {
       return;
     }
 
     HopGui hopGui = HopGui.getInstance();
     IVariables variables = hopGui.getVariables();
-    for (ProjectConfig projectConfig : projectConfigurations) {
-      try {
-        Project project = projectConfig.loadProject(variables);
-        if (project != null) {
-          for (LifecycleEnvironment environment : project.getLifecycleEnvironments()) {
-            int index = lifecycleEnvironments.indexOf(environment);
-            if (index < 0) {
-              lifecycleEnvironments.add(new LifecycleEnvironment(environment));
-            } else {
-              lifecycleEnvironments.set(index, new LifecycleEnvironment(environment));
-            }
-          }
 
-          // copy the environments from hop-config to the project configurations
-          for (LifecycleEnvironment environment : lifecycleEnvironments) {
-            if (projectConfig.getProjectHome().equalsIgnoreCase(environment.getProjectName())) {
-              project.addEnvironment(new LifecycleEnvironment(environment));
-            }
-          }
-        }
-      } catch (HopException e) {
-        // Ignore the exception
+    for (ProjectConfig projectConfig : projectConfigurations) {
+      syncProjectConfigWithEnvironments(projectConfig, variables);
+    }
+  }
+
+  private void syncProjectConfigWithEnvironments(
+      ProjectConfig projectConfig, IVariables variables) {
+    try {
+      Project project = projectConfig.loadProject(variables);
+      if (project == null) {
+        return;
+      }
+
+      syncEnvironmentsFromProject(project);
+      syncEnvironmentsToProject(projectConfig, project);
+
+    } catch (HopException e) {
+      // Ignore the exception
+    }
+  }
+
+  private void syncEnvironmentsFromProject(Project project) {
+    for (LifecycleEnvironment environment : project.getLifecycleEnvironments()) {
+      int index = lifecycleEnvironments.indexOf(environment);
+      if (index < 0) {
+        lifecycleEnvironments.add(new LifecycleEnvironment(environment));
+      } else {
+        lifecycleEnvironments.set(index, new LifecycleEnvironment(environment));
+      }
+    }
+  }
+
+  private void syncEnvironmentsToProject(ProjectConfig projectConfig, Project project) {
+    for (LifecycleEnvironment environment : lifecycleEnvironments) {
+      if (projectConfig.getProjectName().equalsIgnoreCase(environment.getProjectName())) {
+        project.addEnvironment(new LifecycleEnvironment(environment));
       }
     }
   }
