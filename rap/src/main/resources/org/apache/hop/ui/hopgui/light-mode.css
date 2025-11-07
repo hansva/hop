@@ -2528,3 +2528,66 @@ Shell.jface_contentProposalPopup, Shell.jface_infoPopupDialog {
     box-shadow: 0 0 4px #ababab;
 }
 
+/* Perspective sidebar buttons - default state */
+
+Button.perspective-button,
+Button.perspective-button[PUSH],
+Button.perspective-button[FLAT],
+Button.perspective-button[PUSH][FLAT],
+Button.perspective-button[PUSH][BORDER],
+Button.perspective-button[FLAT][BORDER] {
+    background-color: #f0f0f0;
+    background-image: none;
+    border: none;
+    border-radius: 8px;
+    padding: 4px;
+    cursor: pointer;
+    text-shadow: none;
+    box-shadow: none;
+}
+
+Button.perspective-button:hover,
+Button.perspective-button[PUSH]:hover,
+Button.perspective-button[FLAT]:hover,
+Button.perspective-button[PUSH][FLAT]:hover {
+    background-color: #d7d7d7;
+    background-image: none;
+    border: none;
+    border-radius: 8px;
+}
+
+Button.perspective-button:pressed,
+Button.perspective-button[PUSH]:pressed,
+Button.perspective-button[FLAT]:pressed,
+Button.perspective-button[PUSH][FLAT]:pressed {
+    background-color: #87ceeb;
+    background-image: none;
+    border: none;
+    border-radius: 8px;
+}
+
+/* Perspective sidebar buttons - selected state */
+
+Button.perspective-button-selected,
+Button.perspective-button-selected[PUSH],
+Button.perspective-button-selected[FLAT],
+Button.perspective-button-selected[PUSH][FLAT],
+Button.perspective-button-selected:hover,
+Button.perspective-button-selected[PUSH]:hover,
+Button.perspective-button-selected:pressed,
+Button.perspective-button-selected[PUSH]:pressed {
+    background-color: #87ceeb;
+    background-image: none;
+    border: none;
+    border-radius: 8px;
+}
+
+/* Hide focus indicator for perspective buttons */
+
+Button-FocusIndicator.perspective-button,
+Button-FocusIndicator.perspective-button-selected {
+    background-color: transparent;
+    border: none;
+    opacity: 0;
+}
+

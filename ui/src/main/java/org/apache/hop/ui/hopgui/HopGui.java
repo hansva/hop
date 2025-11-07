@@ -34,7 +34,6 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.commons.io.output.TeeOutputStream;
-import org.apache.commons.lang.StringUtils;
 import org.apache.commons.vfs2.FileObject;
 import org.apache.commons.vfs2.FileSystemException;
 import org.apache.hop.core.Const;
@@ -83,7 +82,6 @@ import org.apache.hop.metadata.util.HopMetadataInstance;
 import org.apache.hop.metadata.util.HopMetadataUtil;
 import org.apache.hop.partition.PartitionSchema;
 import org.apache.hop.server.HopServerMeta;
-import org.apache.hop.ui.core.ConstUi;
 import org.apache.hop.ui.core.PropsUi;
 import org.apache.hop.ui.core.bus.HopGuiEventsHandler;
 import org.apache.hop.ui.core.dialog.ErrorDialog;
@@ -95,8 +93,6 @@ import org.apache.hop.ui.core.gui.HopNamespace;
 import org.apache.hop.ui.core.gui.WindowProperty;
 import org.apache.hop.ui.core.metadata.MetadataManager;
 import org.apache.hop.ui.core.widget.OsHelper;
-import org.apache.hop.ui.core.widget.svg.SvgLabelFacade;
-import org.apache.hop.ui.core.widget.svg.SvgLabelListener;
 import org.apache.hop.ui.hopgui.context.GuiContextUtil;
 import org.apache.hop.ui.hopgui.context.IActionContextHandlersProvider;
 import org.apache.hop.ui.hopgui.context.IGuiContextHandler;
@@ -131,23 +127,27 @@ import org.apache.hop.ui.pipeline.transform.BaseTransformDialog;
 import org.apache.hop.ui.util.EnvironmentUtils;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.StackLayout;
+import org.eclipse.swt.events.PaintEvent;
+import org.eclipse.swt.events.PaintListener;
 import org.eclipse.swt.events.ShellAdapter;
 import org.eclipse.swt.events.ShellEvent;
+import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormData;
 import org.eclipse.swt.layout.FormLayout;
+import org.eclipse.swt.layout.RowData;
+import org.eclipse.swt.layout.RowLayout;
+import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
-import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.MenuItem;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.ToolBar;
-import org.eclipse.swt.widgets.ToolItem;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 
@@ -256,10 +256,10 @@ public class HopGui
   private ToolBar mainToolbar;
   private GuiToolbarWidgets mainToolbarWidgets;
 
+  private Composite perspectivesToolbar;
   private ToolBar statusToolbar;
+  private List<Button> perspectiveButtons = new ArrayList<>();
   private GuiToolbarWidgets statusToolbarWidgets;
-
-  private ToolBar perspectivesToolbar;
   private Composite mainPerspectivesComposite;
   private HopPerspectiveManager perspectiveManager;
   private IHopPerspective activePerspective;
@@ -581,92 +581,43 @@ public class HopGui
         // Create a new instance and initialize.
         //
         final IHopPerspective perspective = perspectiveClass.getConstructor().newInstance();
+
+        // Initialize perspectives in the perspectives composite
         perspective.initialize(this, mainPerspectivesComposite);
         perspectiveManager.addPerspective(perspective);
 
-        // Create a toolbar item
+        // Create toolbar button for the sidebar
         //
         String tooltip =
             Const.NVL(
                 TranslateUtil.translate(perspectivePlugin.getName(), perspectiveClass),
                 perspective.getId());
+
         ClassLoader classLoader = pluginRegistry.getClassLoader(perspectivePlugin);
 
-        ToolItem item;
-        if (EnvironmentUtils.getInstance().isWeb()) {
-          item =
-              addWebToolbarButton(
-                  perspectivePlugin.getIds()[0],
-                  this.perspectivesToolbar,
-                  perspectivePlugin.getImageFile(),
-                  tooltip,
-                  // TODO: check if there is unnecessary refresh
-                  event -> setActivePerspective(perspective));
-        } else {
-          item = new ToolItem(this.perspectivesToolbar, SWT.RADIO);
-          item.setToolTipText(tooltip);
-          item.addListener(
-              SWT.Selection,
-              event -> {
-                // Event is sent first to the unselected tool item and then the selected item.
-                // To avoid unnecessary refresh, only activate perspective on the selected item.
-                if (item.getSelection()) {
-                  setActivePerspective(perspective);
-                }
-              });
-          Image image =
-              GuiResource.getInstance()
-                  .getImage(
-                      perspectivePlugin.getImageFile(),
-                      classLoader,
-                      ConstUi.SMALL_ICON_SIZE,
-                      ConstUi.SMALL_ICON_SIZE);
-          if (image != null) {
-            item.setImage(image);
-          }
-        }
-        item.setData(perspective);
+        // Create styled sidebar button
+        Button button =
+            createStyledSidebarButton(
+                perspectivesToolbar,
+                perspectivePlugin,
+                classLoader,
+                tooltip,
+                event -> setActivePerspective(perspective),
+                perspective);
+        perspectiveButtons.add(button);
 
         // See if there's a shortcut for the perspective, add it to tooltip...
         KeyboardShortcut shortcut =
             GuiRegistry.getInstance()
                 .findKeyboardShortcut(perspectiveClass.getName(), "activate", Const.isOSX());
         if (shortcut != null) {
-          item.setToolTipText(item.getToolTipText() + " (" + shortcut + ')');
+          button.setToolTipText(button.getToolTipText() + " (" + shortcut + ')');
         }
       }
-      perspectivesToolbar.pack();
+      perspectivesToolbar.layout();
     } catch (Exception e) {
       new ErrorDialog(shell, "Error", "Error loading perspectives", e);
     }
-  }
-
-  private ToolItem addWebToolbarButton(
-      String id, ToolBar toolBar, String filename, String tooltip, Listener listener) {
-    ToolItem item = new ToolItem(toolBar, SWT.SEPARATOR);
-
-    Label label = new Label(toolBar, SWT.NONE);
-    Listener webListener = SvgLabelListener.getInstance();
-    label.addListener(SWT.MouseDown, webListener);
-    label.addListener(SWT.Hide, webListener);
-    label.addListener(SWT.Show, webListener);
-    label.addListener(SWT.MouseDown, listener);
-    if (StringUtils.isNotEmpty(tooltip)) {
-      label.setToolTipText(tooltip);
-    }
-    label.pack();
-    int size = (int) (ConstUi.SMALL_ICON_SIZE * PropsUi.getNativeZoomFactor());
-    // Just make the items a tad wider.
-    // Hop Web/RAP isn't smart enough to know that the toolbar is vertical and this should be
-    // higher.
-    // We use this glitch to give the icons a tad more room on the right.
-    //
-    item.setWidth(size + 2);
-    item.setControl(label);
-
-    SvgLabelFacade.setData(id, label, filename, size);
-    item.setData("id", id);
-    return item;
   }
 
   private static Display setupDisplay() {
@@ -1294,22 +1245,40 @@ public class HopGui
     formData.bottom = new FormAttachment(statusToolbar, 0);
     mainHopGuiComposite.setLayoutData(formData);
 
-    perspectivesToolbar = new ToolBar(mainHopGuiComposite, SWT.WRAP | SWT.RIGHT | SWT.VERTICAL);
-    PropsUi.setLook(perspectivesToolbar, Props.WIDGET_STYLE_TOOLBAR);
+    // Create a modern sidebar composite with styled buttons
+    perspectivesToolbar = new Composite(mainHopGuiComposite, SWT.NONE);
+    RowLayout rowLayout = new RowLayout(SWT.VERTICAL);
+    rowLayout.marginLeft = 6;
+    rowLayout.marginRight = 6;
+    rowLayout.marginTop = 10;
+    rowLayout.marginBottom = 10;
+    rowLayout.spacing = 4;
+    rowLayout.fill = false;
+    rowLayout.center = true;
+    perspectivesToolbar.setLayout(rowLayout);
+
+    // Style the sidebar background
+    final GuiResource gui = GuiResource.getInstance();
+    if (PropsUi.getInstance().isDarkMode()) {
+      perspectivesToolbar.setBackground(gui.getColorLightGray());
+    } else {
+      perspectivesToolbar.setBackground(gui.getColorDemoGray());
+    }
+
     FormData fdToolBar = new FormData();
     fdToolBar.left = new FormAttachment(0, 0);
     fdToolBar.top = new FormAttachment(0, 0);
     fdToolBar.bottom = new FormAttachment(100, 0);
+    fdToolBar.width = 48; // Fixed width for sidebar
     perspectivesToolbar.setLayoutData(fdToolBar);
   }
 
-  /**
-   * Add a main composite where the various perspectives can parent on to show stuff... Its area is
-   * to just below the main toolbar and to the right of the perspectives toolbar
-   */
+  /** Add the main perspectives composite where perspectives render their content */
   private void addMainPerspectivesComposite() {
+    // This composite holds all perspective content using a StackLayout
     mainPerspectivesComposite = new Composite(mainHopGuiComposite, SWT.NO_BACKGROUND);
     mainPerspectivesComposite.setLayout(new StackLayout());
+
     FormData fdMain = new FormData();
     fdMain.top = new FormAttachment(0, 0);
     fdMain.left = new FormAttachment(perspectivesToolbar, 0);
@@ -1485,49 +1454,190 @@ public class HopGui
   }
 
   /**
-   * Activates the given perspective.
-   *
-   * @param perspective The perspective to active
+   * Create a modern styled sidebar button with rounded corners, transparent background, and custom
+   * painting. Uses CSS for RAP/Web mode since PaintListener is not supported.
    */
-  public void setActivePerspective(IHopPerspective perspective) {
+  private Button createStyledSidebarButton(
+      Composite parent,
+      Plugin perspectivePlugin,
+      ClassLoader classLoader,
+      String tooltip,
+      Listener listener,
+      IHopPerspective perspective) {
 
+    final GuiResource gui = GuiResource.getInstance();
+    final boolean isDarkMode = PropsUi.getInstance().isDarkMode();
+    final boolean isWeb = EnvironmentUtils.getInstance().isWeb();
+
+    // Create button - use NO_BACKGROUND only for desktop (RAP doesn't support custom painting)
+    int style = SWT.PUSH | SWT.FLAT;
+    if (!isWeb) {
+      style |= SWT.NO_BACKGROUND;
+    }
+    Button button = new Button(parent, style);
+    button.setToolTipText(tooltip);
+
+    // Set button size for modern sidebar
+    RowData buttonData = new RowData();
+    buttonData.width = 32;
+    buttonData.height = 32;
+    button.setLayoutData(buttonData);
+
+    // Load icon
+    final Image icon = gui.getImage(perspectivePlugin.getImageFile(), classLoader, 20, 20);
+
+    // Store perspective data and icon
+    button.setData(perspective);
+    button.setData("icon", icon);
+
+    // Set the icon on the button (needed for RAP, desktop draws it manually)
+    if (icon != null) {
+      button.setImage(icon);
+    }
+
+    // Get colors for effects
+    final Color transparentBg = perspectivesToolbar.getBackground();
+    final Color hoverBg = isDarkMode ? gui.getColorGray() : gui.getColorLightGray();
+    final Color selectedBg = isDarkMode ? gui.getColorOrange() : gui.getColorLightBlue();
+
+    if (isWeb) {
+      // RAP/Web mode: Use CSS variants for styling with rounded corners
+      // The CSS class will be "perspective-button" for normal, "perspective-button-selected" for
+      // selected
+      button.setData("org.eclipse.rap.rwt.customVariant", "perspective-button");
+    } else {
+      // Desktop mode: Use custom painting for rounded corners
+      button.addListener(
+          SWT.MouseEnter,
+          e -> {
+            if (!isButtonSelected(button)) {
+              button.setData("hover", true);
+              button.redraw();
+            }
+          });
+      button.addListener(
+          SWT.MouseExit,
+          e -> {
+            if (!isButtonSelected(button)) {
+              button.setData("hover", false);
+              button.redraw();
+            }
+          });
+
+      // Custom paint listener for rounded corners and transparent background
+      button.addPaintListener(
+          new PaintListener() {
+            @Override
+            public void paintControl(PaintEvent e) {
+              int width = button.getSize().x;
+              int height = button.getSize().y;
+              int arc = 10; // Rounded corner radius
+
+              boolean isSelected = isButtonSelected(button);
+              boolean isHover =
+                  button.getData("hover") != null && (Boolean) button.getData("hover");
+
+              // Enable antialiasing for smooth rounded corners
+              e.gc.setAntialias(SWT.ON);
+
+              // Fill with parent background first (transparent effect)
+              e.gc.setBackground(transparentBg);
+              e.gc.fillRectangle(0, 0, width, height);
+
+              // Draw rounded background if selected or hovered
+              if (isSelected) {
+                e.gc.setBackground(selectedBg);
+                e.gc.fillRoundRectangle(0, 0, width, height, arc, arc);
+              } else if (isHover) {
+                e.gc.setBackground(hoverBg);
+                e.gc.fillRoundRectangle(0, 0, width, height, arc, arc);
+              }
+
+              // Draw the icon centered
+              Image img = (Image) button.getData("icon");
+              if (img != null && !img.isDisposed()) {
+                int imgWidth = img.getBounds().width;
+                int imgHeight = img.getBounds().height;
+                int x = (width - imgWidth) / 2;
+                int y = (height - imgHeight) / 2;
+                e.gc.drawImage(img, x, y);
+              }
+            }
+          });
+    }
+
+    // Add selection listener
+    button.addListener(SWT.Selection, listener);
+
+    return button;
+  }
+
+  /** Set the selected state of a sidebar button */
+  private void setButtonSelected(Button button, boolean selected) {
+    if (button == null || button.isDisposed()) {
+      return;
+    }
+
+    final boolean isWeb = EnvironmentUtils.getInstance().isWeb();
+
+    // Update the selection state data
+    button.setData("selected", selected);
+
+    // Clear hover state when deselecting
+    if (!selected) {
+      button.setData("hover", false);
+    }
+
+    if (isWeb) {
+      // RAP mode: Switch CSS variant for selection indication
+      String variant = selected ? "perspective-button-selected" : "perspective-button";
+      button.setData("org.eclipse.rap.rwt.customVariant", variant);
+    } else {
+      // Desktop mode: Redraw to show the updated state with rounded corners
+      button.redraw();
+    }
+  }
+
+  /** Check if a button is selected */
+  private boolean isButtonSelected(Button button) {
+    if (button == null || button.isDisposed()) {
+      return false;
+    }
+    Object selected = button.getData("selected");
+    return selected != null && (Boolean) selected;
+  }
+
+  /** Activate a perspective and show it in the main area */
+  public void setActivePerspective(IHopPerspective perspective) {
     if (perspective == null) {
       perspective = getExplorerPerspective();
     }
 
-    activePerspective = perspective;
-
-    // Move perspective control on top
-    //
+    // Update the StackLayout to show this perspective
     StackLayout layout = (StackLayout) mainPerspectivesComposite.getLayout();
     layout.topControl = perspective.getControl();
     mainPerspectivesComposite.layout();
 
-    // Select toolbar item
-    //
-    if (perspectivesToolbar != null && !perspectivesToolbar.isDisposed()) {
-      for (ToolItem item : perspectivesToolbar.getItems()) {
-        boolean shaded = perspective.equals(item.getData());
-        if (EnvironmentUtils.getInstance().isWeb()) {
-          SvgLabelFacade.shadeSvg((Label) item.getControl(), (String) item.getData("id"), shaded);
-        } else {
-          item.setSelection(shaded);
-        }
+    activePerspective = perspective;
+
+    // Update button selection states
+    for (Button button : perspectiveButtons) {
+      if (button != null && !button.isDisposed()) {
+        boolean isSelected = perspective.equals(button.getData());
+        setButtonSelected(button, isSelected);
       }
     }
 
-    // Notify the perspective that it has been activated.
-    //
+    // Notify the perspective that it has been activated
     perspective.perspectiveActivated();
-
     perspectiveManager.notifyPerspectiveActivated(perspective);
   }
 
   public boolean isActivePerspective(IHopPerspective perspective) {
     if (perspective != null) {
-      for (ToolItem item : perspectivesToolbar.getItems()) {
-        if (perspective.equals(item.getData())) {
-          return item.getSelection();
+      for (Button button : perspectiveButtons) {
+        if (button != null && !button.isDisposed() && perspective.equals(button.getData())) {
+          return isButtonSelected(button);
         }
       }
     }
