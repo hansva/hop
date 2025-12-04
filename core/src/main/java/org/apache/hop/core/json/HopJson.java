@@ -23,14 +23,25 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 
 public class HopJson {
+
+  // Cached ObjectMapper instance - ObjectMapper is thread-safe after configuration
+  private static volatile ObjectMapper cachedMapper;
+
   /**
-   * @return Create a new ObjectMapper instance with the default options set for Hop file
-   *     serialization and de-serialization..
+   * @return A shared ObjectMapper instance with the default options set for Hop file serialization
+   *     and de-serialization. This instance is thread-safe and reused for performance.
    */
-  public static final ObjectMapper newMapper() {
-    ObjectMapper objectMapper = new ObjectMapper();
-    objectMapper.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
-    objectMapper.disable(SerializationFeature.INDENT_OUTPUT);
-    return objectMapper;
+  public static ObjectMapper newMapper() {
+    if (cachedMapper == null) {
+      synchronized (HopJson.class) {
+        if (cachedMapper == null) {
+          ObjectMapper objectMapper = new ObjectMapper();
+          objectMapper.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+          objectMapper.disable(SerializationFeature.INDENT_OUTPUT);
+          cachedMapper = objectMapper;
+        }
+      }
+    }
+    return cachedMapper;
   }
 }

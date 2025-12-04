@@ -45,6 +45,10 @@ public abstract class ConfigFile implements IConfigFile {
 
   @JsonIgnore protected IHopConfigSerializer serializer;
 
+  // Cached parsed variables for performance - avoids repeated JSON parsing
+  @JsonIgnore private List<DescribedVariable> cachedVariables;
+  @JsonIgnore private Map<String, DescribedVariable> variablesByName;
+
   public ConfigFile() {
     configMap = new HashMap<>();
     serializer = new ConfigNoFileSerializer();
@@ -93,7 +97,13 @@ public abstract class ConfigFile implements IConfigFile {
   @JsonIgnore
   @Override
   public List<DescribedVariable> getDescribedVariables() {
+    // Return cached variables if already parsed
+    if (cachedVariables != null) {
+      return cachedVariables;
+    }
+
     List<DescribedVariable> variables = new ArrayList<>();
+    variablesByName = new HashMap<>();
 
     Map<String, Object> configObj = (Map<String, Object>) configMap.get(HOP_CONFIG_KEY);
     if (configObj != null) {
@@ -103,11 +113,17 @@ public abstract class ConfigFile implements IConfigFile {
     Object variablesObject = configMap.get(HOP_VARIABLES_KEY);
     if (variablesObject != null) {
       try {
+        // Reuse single Gson and ObjectMapper instance for all variables
+        Gson gson = new Gson();
+        com.fasterxml.jackson.databind.ObjectMapper mapper = HopJson.newMapper();
         for (Object dvObject : (List) variablesObject) {
-          String dvJson = new Gson().toJson(dvObject);
-          DescribedVariable describedVariable =
-              HopJson.newMapper().readValue(dvJson, DescribedVariable.class);
+          String dvJson = gson.toJson(dvObject);
+          DescribedVariable describedVariable = mapper.readValue(dvJson, DescribedVariable.class);
           variables.add(describedVariable);
+          // Build index for O(1) lookup
+          if (describedVariable.getName() != null) {
+            variablesByName.put(describedVariable.getName(), describedVariable);
+          }
         }
       } catch (Exception e) {
         LogChannel.GENERAL.logError(
@@ -116,38 +132,44 @@ public abstract class ConfigFile implements IConfigFile {
                 + "'",
             e);
         variables = new ArrayList<>();
+        variablesByName = new HashMap<>();
       }
     }
 
     configMap.put(HOP_VARIABLES_KEY, variables);
+    cachedVariables = variables;
 
     return variables;
   }
 
   @Override
   public DescribedVariable findDescribedVariable(String name) {
-    for (DescribedVariable describedVariable : getDescribedVariables()) {
-      if (describedVariable.getName().equals(name)) {
-        return describedVariable;
-      }
-    }
-    return null;
+    // Ensure variables are loaded and indexed
+    getDescribedVariables();
+    // O(1) lookup using the index
+    return variablesByName != null ? variablesByName.get(name) : null;
   }
 
   @Override
   public void setDescribedVariable(DescribedVariable variable) {
-    for (DescribedVariable describedVariable : getDescribedVariables()) {
-      if (describedVariable.getName().equals(variable.getName())) {
-        // Variable found? Update the value and description
-        //
-        describedVariable.setValue(variable.getValue());
-        describedVariable.setDescription(variable.getDescription());
-        return;
+    // Ensure variables are loaded and indexed
+    getDescribedVariables();
+
+    // Use the index for O(1) lookup
+    DescribedVariable existing =
+        variablesByName != null ? variablesByName.get(variable.getName()) : null;
+
+    if (existing != null) {
+      // Variable found? Update the value and description
+      existing.setValue(variable.getValue());
+      existing.setDescription(variable.getDescription());
+    } else {
+      // Variable not found? Add it and update index
+      cachedVariables.add(variable);
+      if (variablesByName != null && variable.getName() != null) {
+        variablesByName.put(variable.getName(), variable);
       }
     }
-    // Variable not found? Add it
-    //
-    getDescribedVariables().add(variable);
   }
 
   @Override
@@ -162,6 +184,16 @@ public abstract class ConfigFile implements IConfigFile {
   @Override
   public void setDescribedVariables(List<DescribedVariable> describedVariables) {
     configMap.put(HOP_VARIABLES_KEY, describedVariables);
+    // Update cache and index
+    cachedVariables = describedVariables;
+    variablesByName = new HashMap<>();
+    if (describedVariables != null) {
+      for (DescribedVariable v : describedVariables) {
+        if (v.getName() != null) {
+          variablesByName.put(v.getName(), v);
+        }
+      }
+    }
   }
 
   /**
