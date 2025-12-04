@@ -32,9 +32,11 @@ import java.util.MissingResourceException;
 import java.util.PropertyResourceBundle;
 import java.util.ResourceBundle;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.commons.lang.StringUtils;
 import org.apache.hop.core.Const;
 import org.apache.hop.core.exception.HopException;
+import org.apache.hop.core.plugins.TranslationCache;
 
 public class GlobalMessageUtil {
 
@@ -42,6 +44,14 @@ public class GlobalMessageUtil {
   public static final Locale FAILOVER_LOCALE = Locale.US;
 
   protected static final ThreadLocal<Locale> threadLocales = new ThreadLocal();
+
+  // Cache for active locales to avoid creating new LinkedHashSet on every call
+  private static volatile LinkedHashSet<Locale> cachedActiveLocales;
+  private static volatile Locale cachedDefaultLocale;
+
+  // Cache for ResourceBundle lookups - key is "locale|packagePath|classLoader"
+  private static final ConcurrentHashMap<String, ResourceBundle> bundleCache =
+      new ConcurrentHashMap<>();
 
   public static String formatErrorMessage(String key, String msg) {
     String s2 = key.substring(0, key.indexOf('.') + "ERROR_0000".length() + 1);
@@ -182,23 +192,44 @@ public class GlobalMessageUtil {
    * {@link LinkedHashSet} contains the user selected preferred {@link Locale}, the failover {@link
    * Locale} ({@link Locale#ENGLISH}) and the {@link Locale#ROOT}.
    *
+   * <p>This method caches the result for performance, since active locales rarely change during
+   * runtime.
+   *
    * @return Returns a {@link LinkedHashSet} of {@link Locale}s for consideration when translating
    *     text
    */
   public static LinkedHashSet<Locale> getActiveLocales() {
+    Locale currentDefault = LanguageChoice.getInstance().getDefaultLocale();
+
+    // Return cached locales if default locale hasn't changed
+    if (cachedActiveLocales != null && currentDefault == cachedDefaultLocale) {
+      return cachedActiveLocales;
+    }
+
+    // Build new set of active locales
     // Use a LinkedHashSet to maintain order
     final LinkedHashSet<Locale> activeLocales = new LinkedHashSet<>();
 
-    Locale defaultLocale = LanguageChoice.getInstance().getDefaultLocale();
-    if (defaultLocale != null) {
+    if (currentDefault != null) {
       // Example: messages_fr_FR.properties
-      activeLocales.add(LanguageChoice.getInstance().getDefaultLocale());
+      activeLocales.add(currentDefault);
     }
     // Example: messages_en_US.properties
     activeLocales.add(FAILOVER_LOCALE);
     // Example: messages.properties
     activeLocales.add(Locale.ROOT);
+
+    // Cache for future calls
+    cachedDefaultLocale = currentDefault;
+    cachedActiveLocales = activeLocales;
+
     return activeLocales;
+  }
+
+  /** Clears the cached active locales, forcing recalculation on next access. */
+  public static void clearLocaleCache() {
+    cachedActiveLocales = null;
+    cachedDefaultLocale = null;
   }
 
   /**
@@ -258,12 +289,40 @@ public class GlobalMessageUtil {
       final boolean logNotFoundError,
       final boolean fallbackOnRoot) {
 
+    // Build cache key using first package name (most specific) and key
+    // This caches at the top level to avoid locale/package iteration on cache hit
+    String cacheKey = pkgNames[0] + "|" + key;
+    TranslationCache translationCache = TranslationCache.getInstance();
+    String cachedValue = translationCache.get(cacheKey);
+
+    if (cachedValue != null) {
+      // Cache hit - format with parameters if needed
+      if (parameters != null && parameters.length > 0) {
+        return MessageFormat.format(cachedValue, parameters);
+      }
+      return cachedValue;
+    }
+
+    // Cache miss - do the expensive lookup
     final Set<Locale> activeLocales = getActiveLocales();
     for (final Locale locale : activeLocales) {
       final String string =
           calculateString(
               pkgNames, locale, key, parameters, resourceClass, bundleName, fallbackOnRoot);
       if (!isMissingKey(string)) {
+        // Cache the unformatted string for future lookups
+        // We need the unformatted version, so look it up without parameters
+        if (parameters == null || parameters.length == 0) {
+          translationCache.put(cacheKey, string);
+        } else {
+          // For parameterized strings, cache the unformatted template
+          String unformatted =
+              calculateStringUnformatted(
+                  pkgNames, locale, key, resourceClass, bundleName, fallbackOnRoot);
+          if (unformatted != null) {
+            translationCache.put(cacheKey, unformatted);
+          }
+        }
         return string;
       }
     }
@@ -276,6 +335,26 @@ public class GlobalMessageUtil {
       System.err.println(Const.getStackTracker(new HopException(msg.toString())));
     }
     return decorateMissingKey(key);
+  }
+
+  /** Get unformatted string for caching purposes */
+  private static String calculateStringUnformatted(
+      final String[] pkgNames,
+      final Locale locale,
+      final String key,
+      final Class<?> resourceClass,
+      final String bundleName,
+      final boolean fallbackOnRoot) {
+    for (final String packageName : pkgNames) {
+      try {
+        ResourceBundle bundle =
+            getBundle(locale, packageName + "." + bundleName, resourceClass, fallbackOnRoot);
+        return bundle.getString(key);
+      } catch (final MissingResourceException e) {
+        continue;
+      }
+    }
+    return null;
   }
 
   private static String calculateString(
@@ -317,11 +396,18 @@ public class GlobalMessageUtil {
       final String bundleName,
       final boolean fallbackOnRoot)
       throws MissingResourceException {
+    // Note: Caching is done at the outer calculateString level to avoid
+    // expensive locale/package iteration on cache hits
     try {
       ResourceBundle bundle =
           getBundle(locale, packageName + "." + bundleName, resourceClass, fallbackOnRoot);
       String unformattedString = bundle.getString(key);
-      return MessageFormat.format(unformattedString, parameters);
+
+      // Format with parameters if any
+      if (parameters != null && parameters.length > 0) {
+        return MessageFormat.format(unformattedString, parameters);
+      }
+      return unformattedString;
     } catch (IllegalArgumentException e) {
       final StringBuilder msg = new StringBuilder();
       msg.append("Format problem with key=[")
@@ -397,6 +483,23 @@ public class GlobalMessageUtil {
       final String packagePath,
       final Class<?> resourceClass,
       final boolean fallbackOnRoot) {
+
+    // Build cache key
+    String cacheKey =
+        locale.toString()
+            + "|"
+            + packagePath
+            + "|"
+            + System.identityHashCode(resourceClass.getClassLoader())
+            + "|"
+            + fallbackOnRoot;
+
+    // Check cache first
+    ResourceBundle cached = bundleCache.get(cacheKey);
+    if (cached != null) {
+      return cached;
+    }
+
     final GlobalMessageControl control = new GlobalMessageControl(fallbackOnRoot);
     final String resourceName =
         control.toResourceName(control.toBundleName(packagePath, locale), "properties");
@@ -409,6 +512,8 @@ public class GlobalMessageUtil {
               locale,
               resourceClass.getClassLoader(),
               new GlobalMessageControl(fallbackOnRoot));
+      // Cache the bundle
+      bundleCache.put(cacheKey, bundle);
     } catch (final MissingResourceException e) {
       final StringBuilder msg = new StringBuilder();
       msg.append("Unable to find properties file '")
@@ -418,6 +523,11 @@ public class GlobalMessageUtil {
       throw new MissingResourceException(msg.toString(), resourceClass.getName(), packagePath);
     }
     return bundle;
+  }
+
+  /** Clear the bundle cache. */
+  public static void clearBundleCache() {
+    bundleCache.clear();
   }
 
   /**

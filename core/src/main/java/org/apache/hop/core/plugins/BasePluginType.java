@@ -243,10 +243,29 @@ public abstract class BasePluginType<T extends Annotation> implements IPluginTyp
       return null;
     }
 
+    // Build cache key - for i18n strings, use just the i18n string since translations
+    // are the same regardless of which plugin class requested it
+    String cacheKey;
+    if (string.startsWith(Const.I18N_PREFIX)) {
+      cacheKey = string;
+    } else {
+      // For non-i18n strings, include package for context
+      cacheKey = packageName + "|" + string;
+    }
+
+    // Check persistent cache first - this survives across JVM restarts
+    TranslationCache cache = TranslationCache.getInstance();
+    String cached = cache.get(cacheKey);
+    if (cached != null) {
+      return cached;
+    }
+
+    // Cache miss - do the expensive lookup
+    String result;
     if (string.startsWith(Const.I18N_PREFIX)) {
       String[] parts = string.split(":");
       if (parts.length != 3) {
-        return string;
+        result = string;
       } else {
         String i18nPackage = parts[1];
         if (StringUtils.isEmpty(i18nPackage)) {
@@ -258,12 +277,11 @@ public abstract class BasePluginType<T extends Annotation> implements IPluginTyp
         if (translation.startsWith("!") && translation.endsWith("!")) {
           translation = BaseMessages.getString(i18nPackage, i18nKey);
         }
-        return translation;
+        result = translation;
       }
     } else {
       // Try the default package name
       //
-      String translation;
       if (!Utils.isEmpty(packageName)) {
         LogLevel oldLogLevel = DefaultLogLevel.getLogLevel();
 
@@ -271,27 +289,29 @@ public abstract class BasePluginType<T extends Annotation> implements IPluginTyp
         //
         DefaultLogLevel.setLogLevel(LogLevel.BASIC);
 
-        translation = BaseMessages.getString(packageName, string, resourceClass);
+        result = BaseMessages.getString(packageName, string, resourceClass);
 
         // restore loglevel, when the last alternative fails, log it when loglevel is detailed
         //
         DefaultLogLevel.setLogLevel(oldLogLevel);
 
-        if (translation.startsWith("!") && translation.endsWith("!")) {
-          translation = BaseMessages.getString(classFromResourcesPackage, string, resourceClass);
+        if (result.startsWith("!") && result.endsWith("!")) {
+          result = BaseMessages.getString(classFromResourcesPackage, string, resourceClass);
         }
 
-        if (translation.startsWith("!") && translation.endsWith("!")) {
-          translation = string;
+        if (result.startsWith("!") && result.endsWith("!")) {
+          result = string;
         }
       } else {
         // Translations are not supported, simply keep the original text.
         //
-        translation = string;
+        result = string;
       }
-
-      return translation;
     }
+
+    // Store in persistent cache for future JVM runs
+    cache.put(cacheKey, result);
+    return result;
   }
 
   protected List<PluginClassFile> findAnnotatedClassFiles(String annotationClassName)
@@ -710,7 +730,8 @@ public abstract class BasePluginType<T extends Annotation> implements IPluginTyp
     }
     registry.registerPlugin(this.getClass(), plugin);
 
-    if (!Utils.isEmpty(libraries)) {
+    // Only log if DETAILED level is enabled - avoid overhead during normal startup
+    if (!Utils.isEmpty(libraries) && LogChannel.GENERAL.isDetailed()) {
       LogChannel.GENERAL.logDetailed(
           "Plugin with id ["
               + ids[0]

@@ -508,16 +508,21 @@ public class PluginRegistry {
   }
 
   /**
-   * This method registers plugin types and loads their respective plugins
+   * This method registers plugin types and loads their respective plugins.
    *
    * @throws HopPluginException
    */
   public static synchronized void init() throws HopPluginException {
     final PluginRegistry registry = getInstance();
 
+    // Register plugin types sequentially - some plugins depend on others
     for (final IPluginType pluginType : pluginTypes) {
       registry.registerType(pluginType);
     }
+
+    // Save the translation cache after all plugins are registered
+    // This persists translations for faster startup on subsequent runs
+    TranslationCache.getInstance().flush();
   }
 
   public void registerType(IPluginType pluginType) throws HopPluginException {
