@@ -209,10 +209,11 @@ public class HopDataOrchestrationPerspective implements IHopPerspective, TabClos
 
     // If it's a new pipeline, the file name will be null. So, ignore
     //
-    if (pipelineMeta.getFilename() != null) {
-      hopGui.fileRefreshDelegate.register(
-          HopVfs.getFileObject(pipelineMeta.getFilename()).getPublicURIString(), pipelineGraph);
-    }
+    //    if (pipelineMeta.getFilename() != null) {
+    //      hopGui.fileRefreshDelegate.register(
+    //          HopVfs.getFileObject(pipelineMeta.getFilename()).getPublicURIString(),
+    // pipelineGraph);
+    //    }
 
     // Update the internal variables (file specific) in the pipeline graph variables
     //
@@ -275,10 +276,11 @@ public class HopDataOrchestrationPerspective implements IHopPerspective, TabClos
 
     // If it's a new workflow, the file name will be null
     //
-    if (workflowMeta.getFilename() != null) {
-      hopGui.fileRefreshDelegate.register(
-          HopVfs.getFileObject(workflowMeta.getFilename()).getPublicURIString(), workflowGraph);
-    }
+    //    if (workflowMeta.getFilename() != null) {
+    //      hopGui.fileRefreshDelegate.register(
+    //          HopVfs.getFileObject(workflowMeta.getFilename()).getPublicURIString(),
+    // workflowGraph);
+    //    }
 
     // Update the internal variables (file specific) in the workflow graph variables
     //

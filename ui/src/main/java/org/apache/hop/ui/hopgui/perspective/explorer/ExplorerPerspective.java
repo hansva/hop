@@ -1047,7 +1047,7 @@ public class ExplorerPerspective implements IHopPerspective, TabClosable {
   }
 
   public ExplorerFile getActiveFile() {
-    if (tabFolder.getSelectionIndex() < 0) {
+    if (tabFolder == null || tabFolder.getSelectionIndex() < 0) {
       return null;
     }
 
@@ -1627,6 +1627,9 @@ public class ExplorerPerspective implements IHopPerspective, TabClosable {
   @Override
   public List<TabItemHandler> getItems() {
     List<TabItemHandler> items = new ArrayList<>();
+    if (tabFolder == null) {
+      return items; // Not yet initialized (lazy loading)
+    }
     for (CTabItem tabItem : tabFolder.getItems()) {
       for (ExplorerFile file : files) {
         if (tabItem.getData().equals(file)) {

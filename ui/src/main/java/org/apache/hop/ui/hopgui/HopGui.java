@@ -28,8 +28,10 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
@@ -260,6 +262,7 @@ public class HopGui
   private Composite mainPerspectivesComposite;
   private HopPerspectiveManager perspectiveManager;
   private IHopPerspective activePerspective;
+  private Set<IHopPerspective> initializedPerspectives = new HashSet<>();
 
   private static final PrintStream originalSystemOut = System.out;
   private static final PrintStream originalSystemErr = System.err;
@@ -568,10 +571,15 @@ public class HopGui
         Class<IHopPerspective> perspectiveClass =
             pluginRegistry.getClass(perspectivePlugin, IHopPerspective.class);
 
-        // Create a new instance & initialize.
+        // Create a new instance & lazy-initialize.
+        // HopDataOrchestrationPerspective is always initialized eagerly, others are lazy-loaded.
         //
         final IHopPerspective perspective = perspectiveClass.getConstructor().newInstance();
-        perspective.initialize(this, mainPerspectivesComposite);
+        if (perspective instanceof HopDataOrchestrationPerspective) {
+          // Always eagerly initialize the main data orchestration perspective
+          perspective.initialize(this, mainPerspectivesComposite);
+          initializedPerspectives.add(perspective);
+        }
         perspectiveManager.addPerspective(perspective);
 
         // Create a toolbar item
@@ -1488,6 +1496,13 @@ public class HopGui
 
     if (perspective == null) {
       perspective = getDataOrchestrationPerspective();
+    }
+
+    // Lazy-initialize the perspective if not yet initialized
+    //
+    if (!initializedPerspectives.contains(perspective)) {
+      perspective.initialize(this, mainPerspectivesComposite);
+      initializedPerspectives.add(perspective);
     }
 
     activePerspective = perspective;
