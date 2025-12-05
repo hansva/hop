@@ -17,6 +17,7 @@
 
 package org.apache.hop.ui.hopgui.perspective.explorer.file.types.noext;
 
+import java.io.File;
 import org.apache.commons.vfs2.FileObject;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.variables.IVariables;
@@ -75,10 +76,19 @@ public class NoExtensionExplorerFileType
             IHopFileType.CAPABILITY_SELECT));
   }
 
+  private boolean isVfsPath(String path) {
+    return path != null && path.contains("://");
+  }
+
   @Override
   public boolean isHandledBy(String filename, boolean checkContent) throws HopException {
-    FileObject fileObject = HopVfs.getFileObject(filename);
-    String baseName = fileObject.getName().getBaseName();
+    String baseName;
+    if (isVfsPath(filename)) {
+      FileObject fileObject = HopVfs.getFileObject(filename);
+      baseName = fileObject.getName().getBaseName();
+    } else {
+      baseName = new File(filename).getName();
+    }
 
     for (String extension : getFilterExtensions()) {
       if (extension.equals(baseName)) {

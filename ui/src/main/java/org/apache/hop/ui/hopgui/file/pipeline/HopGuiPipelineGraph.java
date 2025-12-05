@@ -3715,7 +3715,7 @@ public class HopGuiPipelineGraph extends HopGuiAbstractGraph
 
       pipelineMeta.setFilename(filename);
       save();
-      hopGui.fileRefreshDelegate.register(fileObject.getPublicURIString(), this);
+      // hopGui.fileRefreshDelegate.register(fileObject.getPublicURIString(), this);
     } catch (Exception e) {
       throw new HopException("Error validating file existence for '" + filename + "'", e);
     }

@@ -35,8 +35,6 @@ import lombok.Getter;
 import lombok.Setter;
 import org.apache.commons.io.output.TeeOutputStream;
 import org.apache.commons.lang.StringUtils;
-import org.apache.commons.vfs2.FileObject;
-import org.apache.commons.vfs2.FileSystemException;
 import org.apache.hop.core.Const;
 import org.apache.hop.core.DbCache;
 import org.apache.hop.core.HopEnvironment;
@@ -45,7 +43,6 @@ import org.apache.hop.core.config.DescribedVariablesConfigFile;
 import org.apache.hop.core.config.HopConfig;
 import org.apache.hop.core.database.DatabaseMeta;
 import org.apache.hop.core.exception.HopException;
-import org.apache.hop.core.exception.HopFileException;
 import org.apache.hop.core.exception.HopXmlException;
 import org.apache.hop.core.extension.ExtensionPointHandler;
 import org.apache.hop.core.extension.HopExtensionPoint;
@@ -73,7 +70,6 @@ import org.apache.hop.core.util.TranslateUtil;
 import org.apache.hop.core.variables.DescribedVariable;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.core.variables.Variables;
-import org.apache.hop.core.vfs.HopVfs;
 import org.apache.hop.core.xml.XmlHandler;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.i18n.LanguageChoice;
@@ -301,7 +297,7 @@ public class HopGui
     undoDelegate = new HopGuiUndoDelegate(this);
     contextDelegate = new HopGuiContextDelegate(this);
     auditDelegate = new HopGuiAuditDelegate(this);
-    fileRefreshDelegate = new HopGuiFileRefreshDelegate(this);
+    //    fileRefreshDelegate = new HopGuiFileRefreshDelegate(this);
 
     // TODO: create metadata plugin system
     //
@@ -522,17 +518,14 @@ public class HopGui
   private void loadPerspectives() {
     List<String> excludedGuiElements = new ArrayList<>();
 
-    // Try loading code exclusions
+    // Try loading code exclusions using standard Java I/O for local files (faster than VFS)
     try {
-      FileObject applicationFolderFile = HopVfs.getFileObject("./disabledGuiElements.xml");
-      FileObject configFolderFile =
-          HopVfs.getFileObject(
-              Const.HOP_CONFIG_FOLDER + File.separator + "disabledGuiElements.xml");
-      String path = null;
+      java.io.File applicationFolderFile = new java.io.File("./disabledGuiElements.xml");
+      java.io.File configFolderFile =
+          new java.io.File(Const.HOP_CONFIG_FOLDER + File.separator + "disabledGuiElements.xml");
 
       if (applicationFolderFile.exists()) {
-        path = applicationFolderFile.getPath().toAbsolutePath().toString();
-        Document document = XmlHandler.loadXmlFile(path);
+        Document document = XmlHandler.loadXmlFile(applicationFolderFile.getAbsolutePath());
         Node exclusionsNode = XmlHandler.getSubNode(document, "exclusions");
         List<Node> exclusionNodes = XmlHandler.getNodes(exclusionsNode, "exclusion");
 
@@ -542,8 +535,7 @@ public class HopGui
       }
 
       if (configFolderFile.exists()) {
-        path = configFolderFile.getPath().toAbsolutePath().toString();
-        Document document = XmlHandler.loadXmlFile(path);
+        Document document = XmlHandler.loadXmlFile(configFolderFile.getAbsolutePath());
         Node exclusionsNode = XmlHandler.getSubNode(document, "exclusions");
         List<Node> exclusionNodes = XmlHandler.getNodes(exclusionsNode, "exclusion");
 
@@ -551,7 +543,7 @@ public class HopGui
           excludedGuiElements.add(exclusionNode.getTextContent());
         }
       }
-    } catch (HopXmlException | FileSystemException | HopFileException e) {
+    } catch (HopXmlException e) {
       // ignore
     }
 

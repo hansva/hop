@@ -18,6 +18,7 @@
 
 package org.apache.hop.ui.hopgui.perspective.explorer.file.types;
 
+import java.io.File;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
@@ -76,6 +77,10 @@ public class GenericFileType implements IHopFileType {
     return new EmptyHopFileTypeHandler();
   }
 
+  private boolean isVfsPath(String path) {
+    return path != null && path.contains("://");
+  }
+
   /**
    * See if this is a generic file
    *
@@ -87,7 +92,12 @@ public class GenericFileType implements IHopFileType {
   @Override
   public boolean isHandledBy(String filename, boolean checkContent) throws HopException {
     try {
-      return HopVfs.getFileObject(filename).isFile();
+      // Use standard Java I/O for local paths (faster than VFS)
+      if (isVfsPath(filename)) {
+        return HopVfs.getFileObject(filename).isFile();
+      } else {
+        return new File(filename).isFile();
+      }
     } catch (Exception e) {
       throw new HopException("Error seeing if file '" + filename + "' is a generic file", e);
     }

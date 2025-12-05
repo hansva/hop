@@ -46,11 +46,25 @@ public class SwtUniversalImageBitmap extends SwtUniversalImage {
 
   @Override
   protected Image renderSimple(Device device, int width, int height) {
-    return renderRotated(device, width, height, 0d);
+    // Create an exact-sized image (not 2x like renderRotated)
+    Image result = new Image(device, width, height);
+
+    GC gc = new GC(result);
+
+    int bw = bitmap.getBounds().width;
+    int bh = bitmap.getBounds().height;
+
+    // Scale the bitmap to fit the requested size
+    gc.drawImage(bitmap, 0, 0, bw, bh, 0, 0, width, height);
+
+    gc.dispose();
+
+    return result;
   }
 
   @Override
   protected Image renderRotated(Device device, int width, int height, double angleRadians) {
+    // For rotated images, create a 2x canvas to allow for rotation without clipping
     Image result = new Image(device, width * 2, height * 2);
 
     GC gc = new GC(result);

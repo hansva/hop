@@ -22,6 +22,9 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -72,6 +75,16 @@ public class JsonMetadataSerializer<T extends IHopMetadata> implements IHopMetad
     this.description = description;
   }
 
+  /**
+   * Check if a path is a VFS path (contains a scheme like sftp://, s3://, etc.)
+   *
+   * @param path the path to check
+   * @return true if this is a VFS path
+   */
+  private boolean isVfsPath(String path) {
+    return path != null && path.contains("://");
+  }
+
   @Override
   public List<T> loadAll() throws HopException {
     List<T> list = new ArrayList<>();
@@ -100,8 +113,14 @@ public class JsonMetadataSerializer<T extends IHopMetadata> implements IHopMetad
 
     try {
       // Load the JSON in a streaming fashion so we can parse the properties one by one...
+      // Use standard Java I/O for local files (faster than VFS)
       //
-      try (InputStream fileInputStream = HopVfs.getInputStream(filename)) {
+      InputStream fileInputStream =
+          isVfsPath(filename)
+              ? HopVfs.getInputStream(filename)
+              : new FileInputStream(new File(filename));
+
+      try (fileInputStream) {
         JsonFactory jsonFactory = new JsonFactory();
         try (com.fasterxml.jackson.core.JsonParser jsonParser =
             jsonFactory.createParser(fileInputStream)) {
@@ -144,23 +163,36 @@ public class JsonMetadataSerializer<T extends IHopMetadata> implements IHopMetad
     }
 
     // Check if the folder exists...
+    // Use standard Java I/O for local paths (faster than VFS)
     //
-    FileObject serializerBaseFolder = HopVfs.getFileObject(baseFolder);
     try {
-      if (serializerBaseFolder.exists()) {
-        baseFolderValidated = true;
-        baseFolderExists = true;
-      } else {
-        if (saveOperation) {
-          serializerBaseFolder.createFolder();
+      if (isVfsPath(baseFolder)) {
+        FileObject serializerBaseFolder = HopVfs.getFileObject(baseFolder);
+        if (serializerBaseFolder.exists()) {
           baseFolderValidated = true;
           baseFolderExists = true;
         } else {
-          // This read operation doesn't really require a folder to be created, but we haven't
-          // validated
-          // the base folder either.
-          //
-          baseFolderExists = false;
+          if (saveOperation) {
+            serializerBaseFolder.createFolder();
+            baseFolderValidated = true;
+            baseFolderExists = true;
+          } else {
+            baseFolderExists = false;
+          }
+        }
+      } else {
+        File localFolder = new File(baseFolder);
+        if (localFolder.exists()) {
+          baseFolderValidated = true;
+          baseFolderExists = true;
+        } else {
+          if (saveOperation) {
+            localFolder.mkdirs();
+            baseFolderValidated = true;
+            baseFolderExists = true;
+          } else {
+            baseFolderExists = false;
+          }
         }
       }
     } catch (Exception e) {
@@ -188,7 +220,13 @@ public class JsonMetadataSerializer<T extends IHopMetadata> implements IHopMetad
 
       JSONObject jObject = parser.getJsonObject(t);
 
-      try (OutputStream outputStream = HopVfs.getOutputStream(filename, false)) {
+      // Use standard Java I/O for local files (faster than VFS)
+      OutputStream outputStream =
+          isVfsPath(filename)
+              ? HopVfs.getOutputStream(filename, false)
+              : new FileOutputStream(new File(filename));
+
+      try (outputStream) {
         String jsonString = jObject.toJSONString();
         Gson gson = (new GsonBuilder()).setPrettyPrinting().create();
         JsonElement je = JsonParser.parseString(jsonString);
@@ -229,7 +267,13 @@ public class JsonMetadataSerializer<T extends IHopMetadata> implements IHopMetad
     T t = load(name);
     String filename = calculateFilename(name);
     try {
-      boolean deleted = HopVfs.getFileObject(filename).delete();
+      // Use standard Java I/O for local files (faster than VFS)
+      boolean deleted;
+      if (isVfsPath(filename)) {
+        deleted = HopVfs.getFileObject(filename).delete();
+      } else {
+        deleted = new File(filename).delete();
+      }
       if (!deleted) {
         throw new HopException(
             "Error: Object '" + name + "' could not be deleted, filename : " + filename);
@@ -252,13 +296,24 @@ public class JsonMetadataSerializer<T extends IHopMetadata> implements IHopMetad
       return names;
     }
 
-    FileObject folder = HopVfs.getFileObject(baseFolder);
-
     try {
-      List<FileObject> jsonFiles = HopVfs.findFiles(folder, "json", false);
-      for (FileObject jsonFile : jsonFiles) {
-        String baseName = jsonFile.getName().getBaseName();
-        names.add(baseName.replaceAll("\\.json$", ""));
+      // Use standard Java I/O for local files (faster than VFS)
+      if (isVfsPath(baseFolder)) {
+        FileObject folder = HopVfs.getFileObject(baseFolder);
+        List<FileObject> jsonFiles = HopVfs.findFiles(folder, "json", false);
+        for (FileObject jsonFile : jsonFiles) {
+          String baseName = jsonFile.getName().getBaseName();
+          names.add(baseName.replaceAll("\\.json$", ""));
+        }
+      } else {
+        File folder = new File(baseFolder);
+        File[] jsonFiles = folder.listFiles((dir, name) -> name.endsWith(".json"));
+        if (jsonFiles != null) {
+          for (File jsonFile : jsonFiles) {
+            String baseName = jsonFile.getName();
+            names.add(baseName.replaceAll("\\.json$", ""));
+          }
+        }
       }
       return names;
     } catch (Exception e) {
@@ -273,6 +328,12 @@ public class JsonMetadataSerializer<T extends IHopMetadata> implements IHopMetad
     if (!baseFolderExists) {
       return false;
     }
-    return HopVfs.fileExists(calculateFilename(name));
+    String filename = calculateFilename(name);
+    // Use standard Java I/O for local files (faster than VFS)
+    if (isVfsPath(filename)) {
+      return HopVfs.fileExists(filename);
+    } else {
+      return new File(filename).exists();
+    }
   }
 }

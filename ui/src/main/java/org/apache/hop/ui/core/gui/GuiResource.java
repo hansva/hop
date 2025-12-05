@@ -23,6 +23,7 @@ import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
 import lombok.Getter;
+import org.apache.hop.core.Const;
 import org.apache.hop.core.SwtUniversalImage;
 import org.apache.hop.core.database.DatabasePluginType;
 import org.apache.hop.core.database.IDatabase;
@@ -390,6 +391,9 @@ public class GuiResource {
     loadActionImages();
     loadValueMetaImages();
     loadDatabaseImages();
+
+    // Save SVG dimension cache for faster startup on subsequent runs
+    org.apache.hop.core.svg.SvgCache.getInstance().saveDimensionCache();
   }
 
   private void dispose() {
@@ -556,14 +560,11 @@ public class GuiResource {
     }
   }
 
-  /** Load all transform images from files. */
+  /** Load all transform images from files with bitmap caching. */
   private void loadTransformImages() {
     imagesTransforms = new Hashtable<>();
 
-    // TRANSFORM IMAGES TO LOAD
-    //
     PluginRegistry registry = PluginRegistry.getInstance();
-
     List<IPlugin> transforms = registry.getPlugins(TransformPluginType.class);
     for (IPlugin transform : transforms) {
       if (imagesTransforms.get(transform.getIds()[0]) != null) {
@@ -574,7 +575,7 @@ public class GuiResource {
       String filename = transform.getImageFile();
       try {
         ClassLoader classLoader = registry.getClassLoader(transform);
-        image = SwtSvgImageUtil.getUniversalImage(display, classLoader, filename);
+        image = loadSvgImageWithCache(display, classLoader, filename);
       } catch (Throwable t) {
         log.logError(
             CONST_ERROR_OCCURRED_LOADING_IMAGE + filename + CONST_FOR_PLUGIN + transform, t);
@@ -657,30 +658,183 @@ public class GuiResource {
     fontBold = new ManagedFont(display, boldFontData);
   }
 
-  // load image from svg
+  // Bitmap cache directory for rendered SVG images (lazy initialized)
+  private java.io.File bitmapCacheDir;
+  private String cacheKeySuffix;
+  private boolean bitmapCacheInitialized = false;
+
+  /** Initialize bitmap cache directory lazily (to avoid issues with PropsUi not being ready). */
+  private void initBitmapCache() {
+    if (bitmapCacheInitialized) {
+      return;
+    }
+    // Create cache key suffix based on dark mode and zoom factor
+    // This ensures cache is invalidated when these settings change
+    boolean darkMode = PropsUi.getInstance().isDarkMode();
+    int zoomPercent = (int) Math.round(zoomFactor * 100);
+    cacheKeySuffix = (darkMode ? "_dark" : "_light") + "_z" + zoomPercent;
+
+    bitmapCacheDir = new java.io.File(Const.HOP_AUDIT_FOLDER, "caches/bitmap-cache");
+    if (!bitmapCacheDir.exists()) {
+      bitmapCacheDir.mkdirs();
+    }
+    bitmapCacheInitialized = true;
+  }
+
+  /**
+   * Get cache file for a rendered bitmap.
+   *
+   * @param location SVG location
+   * @param width rendered width
+   * @param height rendered height
+   * @return cache file path
+   */
+  private java.io.File getBitmapCacheFile(String location, int width, int height) {
+    initBitmapCache();
+    // Create a safe filename from location + size + dark mode + zoom
+    String safeName =
+        location.replace("/", "_").replace("\\", "_").replace(":", "_").replace(".svg", "");
+    String cacheFileName = safeName + "_" + width + "x" + height + cacheKeySuffix + ".png";
+    return new java.io.File(bitmapCacheDir, cacheFileName);
+  }
+
+  /**
+   * Try to load image from bitmap cache.
+   *
+   * @param cacheFile the cache file
+   * @return Image if cached, null otherwise
+   */
+  private Image loadFromBitmapCache(Display display, java.io.File cacheFile) {
+    if (cacheFile.exists()) {
+      try {
+        return new Image(display, cacheFile.getAbsolutePath());
+      } catch (Exception e) {
+        // Cache file corrupted, ignore and regenerate
+        cacheFile.delete();
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Save rendered image to bitmap cache.
+   *
+   * @param image the rendered image
+   * @param cacheFile the cache file
+   */
+  private void saveToBitmapCache(Image image, java.io.File cacheFile) {
+    try {
+      org.eclipse.swt.graphics.ImageLoader loader = new org.eclipse.swt.graphics.ImageLoader();
+      loader.data = new org.eclipse.swt.graphics.ImageData[] {image.getImageData()};
+      loader.save(cacheFile.getAbsolutePath(), SWT.IMAGE_PNG);
+    } catch (Exception e) {
+      // Ignore cache save errors
+    }
+  }
+
+  /**
+   * Load a SwtUniversalImage with bitmap caching. On first load, the SVG is parsed and cached as
+   * PNG. On subsequent loads, the PNG is loaded directly (much faster).
+   *
+   * @param display the display
+   * @param location the SVG location
+   * @return cached SwtUniversalImage
+   */
+  private SwtUniversalImage loadSvgImageWithCache(Display display, String location) {
+    return loadSvgImageWithCache(display, getClass().getClassLoader(), location);
+  }
+
+  /**
+   * Load a SwtUniversalImage with bitmap caching using a specific ClassLoader.
+   *
+   * @param display the display
+   * @param classLoader the class loader to use for loading the SVG
+   * @param location the SVG location
+   * @return cached SwtUniversalImage
+   */
+  private SwtUniversalImage loadSvgImageWithCache(
+      Display display, ClassLoader classLoader, String location) {
+    // Use a standard size for caching universal images
+    int cacheSize = (int) Math.round(ConstUi.ICON_SIZE * zoomFactor);
+
+    java.io.File cacheFile = getBitmapCacheFile(location, cacheSize, cacheSize);
+
+    // Try to load from cache
+    if (cacheFile.exists()) {
+      try {
+        Image cachedBitmap = new Image(display, cacheFile.getAbsolutePath());
+        // Use zoomFactor=1.0 since the cached bitmap is already at the zoomed size
+        return new org.apache.hop.core.SwtUniversalImageBitmap(cachedBitmap, 1.0);
+      } catch (Exception e) {
+        // Cache corrupted, regenerate
+        cacheFile.delete();
+      }
+    }
+
+    // Cache miss - load from SVG
+    SwtUniversalImage img = SwtSvgImageUtil.getUniversalImage(display, classLoader, location);
+
+    // Save to cache for next startup
+    try {
+      Image bitmap = img.getAsBitmapForSize(display, cacheSize, cacheSize);
+      saveToBitmapCache(bitmap, cacheFile);
+    } catch (Exception e) {
+      // Ignore cache save errors
+    }
+
+    return img;
+  }
+
+  // load image from svg with bitmap caching for faster startup
   //
   public Image loadAsResource(Display display, String location, int size) {
+    int newSize = size > 0 ? (int) Math.round(size * zoomFactor) : ConstUi.ICON_SIZE;
+
+    // Check bitmap cache first
+    java.io.File cacheFile = getBitmapCacheFile(location, newSize, newSize);
+    Image cached = loadFromBitmapCache(display, cacheFile);
+    if (cached != null) {
+      return cached;
+    }
+
+    // Cache miss - render from SVG
     SwtUniversalImage img =
         SwtSvgImageUtil.getUniversalImage(display, getClass().getClassLoader(), location);
     Image image;
     if (size > 0) {
-      int newSize = (int) Math.round(size * zoomFactor);
       image = new Image(display, img.getAsBitmapForSize(display, newSize, newSize), SWT.IMAGE_COPY);
     } else {
       image = new Image(display, img.getAsBitmap(display), SWT.IMAGE_COPY);
     }
     img.dispose();
+
+    // Save to cache for next startup
+    saveToBitmapCache(image, cacheFile);
+
     return image;
   }
 
-  // load image from svg
+  // load image from svg with bitmap caching
   public Image loadAsResource(Display display, String location, int width, int height) {
-    SwtUniversalImage img = SwtSvgImageUtil.getImageAsResource(display, location);
     int newWidth = (int) Math.round(width * zoomFactor);
     int newHeight = (int) Math.round(height * zoomFactor);
+
+    // Check bitmap cache first
+    java.io.File cacheFile = getBitmapCacheFile(location, newWidth, newHeight);
+    Image cached = loadFromBitmapCache(display, cacheFile);
+    if (cached != null) {
+      return cached;
+    }
+
+    // Cache miss - render from SVG
+    SwtUniversalImage img = SwtSvgImageUtil.getImageAsResource(display, location);
     Image image =
         new Image(display, img.getAsBitmapForSize(display, newWidth, newHeight), SWT.IMAGE_COPY);
     img.dispose();
+
+    // Save to cache for next startup
+    saveToBitmapCache(image, cacheFile);
+
     return image;
   }
 
@@ -774,72 +928,100 @@ public class GuiResource {
     imageUnselectAll =
         loadAsResource(display, "ui/images/unselect-all.svg", ConstUi.SMALL_ICON_SIZE);
 
-    // Svg image
+    // Svg images - loaded with bitmap caching for faster startup
     //
-    imageLogo = SwtSvgImageUtil.getImageAsResource(display, "ui/images/logo_icon.svg");
-    imagePipeline = SwtSvgImageUtil.getImageAsResource(display, "ui/images/pipeline.svg");
-    imageWorkflow = SwtSvgImageUtil.getImageAsResource(display, "ui/images/workflow.svg");
-    imageServer = SwtSvgImageUtil.getImageAsResource(display, "ui/images/server.svg");
-    imagePreview = SwtSvgImageUtil.getImageAsResource(display, "ui/images/preview.svg");
-    imageTrue = SwtSvgImageUtil.getImageAsResource(display, "ui/images/true.svg");
-    imageTrueDisabled = SwtSvgImageUtil.getImageAsResource(display, "ui/images/true-disabled.svg");
-    imageFalse = SwtSvgImageUtil.getImageAsResource(display, "ui/images/false.svg");
-    imageFalseDisabled =
-        SwtSvgImageUtil.getImageAsResource(display, "ui/images/false-disabled.svg");
-    imageVariable = SwtSvgImageUtil.getImageAsResource(display, "ui/images/variable.svg");
-    imageFile = SwtSvgImageUtil.getImageAsResource(display, "ui/images/file.svg");
-    imageFolder = SwtSvgImageUtil.getImageAsResource(display, "ui/images/folder.svg");
-    imagePartitionSchema =
-        SwtSvgImageUtil.getImageAsResource(display, "ui/images/partition_schema.svg");
-    imageDatabase = SwtSvgImageUtil.getImageAsResource(display, "ui/images/database.svg");
-    imageData = SwtSvgImageUtil.getImageAsResource(display, "ui/images/data.svg");
-    imageEdit = SwtSvgImageUtil.getImageAsResource(display, "ui/images/edit.svg");
-    imageMissing = SwtSvgImageUtil.getImageAsResource(display, "ui/images/missing.svg");
-    imageDeprecated = SwtSvgImageUtil.getImageAsResource(display, "ui/images/deprecated.svg");
-    imageLocked = SwtSvgImageUtil.getImageAsResource(display, "ui/images/lock.svg");
-    imageCopyRows = SwtSvgImageUtil.getImageAsResource(display, "ui/images/copy-rows.svg");
-    imageCopyRowsDisabled =
-        SwtSvgImageUtil.getImageAsResource(display, "ui/images/copy-rows-disabled.svg");
-    imageFailure = SwtSvgImageUtil.getImageAsResource(display, "ui/images/failure.svg");
-    imageSuccess = SwtSvgImageUtil.getImageAsResource(display, "ui/images/success.svg");
-    imageError = SwtSvgImageUtil.getImageAsResource(display, "ui/images/error.svg");
-    imageErrorDisabled =
-        SwtSvgImageUtil.getImageAsResource(display, "ui/images/error-disabled.svg");
-    imageInfo = SwtSvgImageUtil.getImageAsResource(display, "ui/images/info.svg");
-    imageInfoDisabled = SwtSvgImageUtil.getImageAsResource(display, "ui/images/info-disabled.svg");
-    imageWarning = SwtSvgImageUtil.getImageAsResource(display, "ui/images/warning.svg");
-    imageEdit = SwtSvgImageUtil.getImageAsResource(display, "ui/images/edit.svg");
-    imageInput = SwtSvgImageUtil.getImageAsResource(display, "ui/images/input.svg");
-    imageOutput = SwtSvgImageUtil.getImageAsResource(display, "ui/images/output.svg");
-    imageTarget = SwtSvgImageUtil.getImageAsResource(display, "ui/images/target.svg");
-    imageTargetDisabled =
-        SwtSvgImageUtil.getImageAsResource(display, "ui/images/target-disabled.svg");
-    imageParallel = SwtSvgImageUtil.getImageAsResource(display, "ui/images/parallel-hop.svg");
-    imageParallelDisabled =
-        SwtSvgImageUtil.getImageAsResource(display, "ui/images/parallel-hop-disabled.svg");
-    imageUnconditional = SwtSvgImageUtil.getImageAsResource(display, "ui/images/unconditional.svg");
+    imageLogo = loadSvgImageWithCache(display, "ui/images/logo_icon.svg");
+    imagePipeline = loadSvgImageWithCache(display, "ui/images/pipeline.svg");
+    imageWorkflow = loadSvgImageWithCache(display, "ui/images/workflow.svg");
+    imageServer = loadSvgImageWithCache(display, "ui/images/server.svg");
+    imagePreview = loadSvgImageWithCache(display, "ui/images/preview.svg");
+    imageTrue = loadSvgImageWithCache(display, "ui/images/true.svg");
+    imageTrueDisabled = loadSvgImageWithCache(display, "ui/images/true-disabled.svg");
+    imageFalse = loadSvgImageWithCache(display, "ui/images/false.svg");
+    imageFalseDisabled = loadSvgImageWithCache(display, "ui/images/false-disabled.svg");
+    imageVariable = loadSvgImageWithCache(display, "ui/images/variable.svg");
+    imageFile = loadSvgImageWithCache(display, "ui/images/file.svg");
+    imageFolder = loadSvgImageWithCache(display, "ui/images/folder.svg");
+    imagePartitionSchema = loadSvgImageWithCache(display, "ui/images/partition_schema.svg");
+    imageDatabase = loadSvgImageWithCache(display, "ui/images/database.svg");
+    imageData = loadSvgImageWithCache(display, "ui/images/data.svg");
+    imageEdit = loadSvgImageWithCache(display, "ui/images/edit.svg");
+    imageMissing = loadSvgImageWithCache(display, "ui/images/missing.svg");
+    imageDeprecated = loadSvgImageWithCache(display, "ui/images/deprecated.svg");
+    imageLocked = loadSvgImageWithCache(display, "ui/images/lock.svg");
+    imageCopyRows = loadSvgImageWithCache(display, "ui/images/copy-rows.svg");
+    imageCopyRowsDisabled = loadSvgImageWithCache(display, "ui/images/copy-rows-disabled.svg");
+    imageFailure = loadSvgImageWithCache(display, "ui/images/failure.svg");
+    imageSuccess = loadSvgImageWithCache(display, "ui/images/success.svg");
+    imageError = loadSvgImageWithCache(display, "ui/images/error.svg");
+    imageErrorDisabled = loadSvgImageWithCache(display, "ui/images/error-disabled.svg");
+    imageInfo = loadSvgImageWithCache(display, "ui/images/info.svg");
+    imageInfoDisabled = loadSvgImageWithCache(display, "ui/images/info-disabled.svg");
+    imageWarning = loadSvgImageWithCache(display, "ui/images/warning.svg");
+    imageInput = loadSvgImageWithCache(display, "ui/images/input.svg");
+    imageOutput = loadSvgImageWithCache(display, "ui/images/output.svg");
+    imageTarget = loadSvgImageWithCache(display, "ui/images/target.svg");
+    imageTargetDisabled = loadSvgImageWithCache(display, "ui/images/target-disabled.svg");
+    imageParallel = loadSvgImageWithCache(display, "ui/images/parallel-hop.svg");
+    imageParallelDisabled = loadSvgImageWithCache(display, "ui/images/parallel-hop-disabled.svg");
+    imageUnconditional = loadSvgImageWithCache(display, "ui/images/unconditional.svg");
     imageUnconditionalDisabled =
-        SwtSvgImageUtil.getImageAsResource(display, "ui/images/unconditional-disabled.svg");
-    imageBusy = SwtSvgImageUtil.getImageAsResource(display, "ui/images/busy.svg");
-    imageWaiting = SwtSvgImageUtil.getImageAsResource(display, "ui/images/waiting.svg");
-    imageInject = SwtSvgImageUtil.getImageAsResource(display, "ui/images/inject.svg");
-    imageBalance = SwtSvgImageUtil.getImageAsResource(display, "ui/images/scales.svg");
-    imageCheckpoint = SwtSvgImageUtil.getImageAsResource(display, "ui/images/checkpoint.svg");
+        loadSvgImageWithCache(display, "ui/images/unconditional-disabled.svg");
+    imageBusy = loadSvgImageWithCache(display, "ui/images/busy.svg");
+    imageWaiting = loadSvgImageWithCache(display, "ui/images/waiting.svg");
+    imageInject = loadSvgImageWithCache(display, "ui/images/inject.svg");
+    imageBalance = loadSvgImageWithCache(display, "ui/images/scales.svg");
+    imageCheckpoint = loadSvgImageWithCache(display, "ui/images/checkpoint.svg");
 
-    // Hop arrow
+    // Hop arrows - loaded with bitmap caching
     //
-    imageArrowDefault =
-        SwtSvgImageUtil.getImageAsResource(display, "ui/images/hop-arrow-default.svg");
-    imageArrowTrue = SwtSvgImageUtil.getImageAsResource(display, "ui/images/hop-arrow-true.svg");
-    imageArrowFalse = SwtSvgImageUtil.getImageAsResource(display, "ui/images/hop-arrow-false.svg");
-    imageArrowError = SwtSvgImageUtil.getImageAsResource(display, "ui/images/hop-arrow-error.svg");
-    imageArrowDisabled =
-        SwtSvgImageUtil.getImageAsResource(display, "ui/images/hop-arrow-disabled.svg");
-    imageArrowCandidate =
-        SwtSvgImageUtil.getImageAsResource(display, "ui/images/hop-arrow-candidate.svg");
+    imageArrowDefault = loadSvgImageWithCache(display, "ui/images/hop-arrow-default.svg");
+    imageArrowTrue = loadSvgImageWithCache(display, "ui/images/hop-arrow-true.svg");
+    imageArrowFalse = loadSvgImageWithCache(display, "ui/images/hop-arrow-false.svg");
+    imageArrowError = loadSvgImageWithCache(display, "ui/images/hop-arrow-error.svg");
+    imageArrowDisabled = loadSvgImageWithCache(display, "ui/images/hop-arrow-disabled.svg");
+    imageArrowCandidate = loadSvgImageWithCache(display, "ui/images/hop-arrow-candidate.svg");
   }
 
-  /** Load the plugin image from a file. */
+  /**
+   * Load an Image with bitmap caching using a specific ClassLoader.
+   *
+   * @param display the display
+   * @param classLoader the class loader to use for loading the SVG
+   * @param location the SVG location
+   * @param width the width
+   * @param height the height
+   * @return cached Image
+   */
+  private Image loadImageWithCache(
+      Display display, ClassLoader classLoader, String location, int width, int height) {
+    int realWidth = (int) Math.round(width * zoomFactor);
+    int realHeight = (int) Math.round(height * zoomFactor);
+
+    java.io.File cacheFile = getBitmapCacheFile(location, realWidth, realHeight);
+
+    // Try to load from cache
+    if (cacheFile.exists()) {
+      try {
+        return new Image(display, cacheFile.getAbsolutePath());
+      } catch (Exception e) {
+        // Cache corrupted, regenerate
+        cacheFile.delete();
+      }
+    }
+
+    // Cache miss - load from SVG
+    SwtUniversalImage svg = SwtSvgImageUtil.getUniversalImage(display, classLoader, location);
+    Image image =
+        new Image(display, svg.getAsBitmapForSize(display, realWidth, realHeight), SWT.IMAGE_COPY);
+
+    // Save to cache for next startup
+    saveToBitmapCache(image, cacheFile);
+
+    return image;
+  }
+
+  /** Load the plugin image from a file with bitmap caching. */
   private Image loadPluginImage(IPlugin plugin, Image defaultImage) {
     // If no image defined, use default image
     if (Utils.isEmpty(plugin.getImageFile())) {
@@ -851,8 +1033,12 @@ public class GuiResource {
       PluginRegistry registry = PluginRegistry.getInstance();
       ClassLoader classLoader = registry.getClassLoader(plugin);
       image =
-          getImage(
-              plugin.getImageFile(), classLoader, ConstUi.SMALL_ICON_SIZE, ConstUi.SMALL_ICON_SIZE);
+          loadImageWithCache(
+              display,
+              classLoader,
+              plugin.getImageFile(),
+              ConstUi.SMALL_ICON_SIZE,
+              ConstUi.SMALL_ICON_SIZE);
     } catch (Throwable t) {
       log.logError(
           CONST_ERROR_OCCURRED_LOADING_IMAGE
@@ -874,12 +1060,10 @@ public class GuiResource {
     return image;
   }
 
-  /** Load all action images from files. */
+  /** Load all action images from files with bitmap caching. */
   private void loadActionImages() {
     imagesActions = new Hashtable<>();
 
-    // ACTION IMAGES TO LOAD
-    //
     PluginRegistry registry = PluginRegistry.getInstance();
     List<IPlugin> plugins = registry.getPlugins(ActionPluginType.class);
     for (IPlugin plugin : plugins) {
@@ -887,7 +1071,7 @@ public class GuiResource {
       String filename = plugin.getImageFile();
       try {
         ClassLoader classLoader = registry.getClassLoader(plugin);
-        image = SwtSvgImageUtil.getUniversalImage(display, classLoader, filename);
+        image = loadSvgImageWithCache(display, classLoader, filename);
       } catch (Throwable t) {
         log.logError(
             CONST_ERROR_OCCURRED_LOADING_IMAGE + filename + CONST_FOR_PLUGIN + plugin.getIds()[0],
@@ -1381,17 +1565,37 @@ public class GuiResource {
     builder.append(height);
     String key = builder.toString();
 
+    // Check in-memory cache first
     Image image = imageMap.get(key);
-    if (image == null) {
-      SwtUniversalImage svg = SwtSvgImageUtil.getImage(display, location);
-      int realWidth = (int) Math.round(zoomFactor * width);
-      int realHeight = (int) Math.round(zoomFactor * height);
-      image =
-          new Image(
-              display, svg.getAsBitmapForSize(display, realWidth, realHeight), SWT.IMAGE_COPY);
-      svg.dispose();
-      imageMap.put(key, image);
+    if (image != null) {
+      return image;
     }
+
+    int realWidth = (int) Math.round(zoomFactor * width);
+    int realHeight = (int) Math.round(zoomFactor * height);
+
+    // Check disk bitmap cache
+    java.io.File cacheFile = getBitmapCacheFile(location, realWidth, realHeight);
+    if (cacheFile.exists()) {
+      try {
+        image = new Image(display, cacheFile.getAbsolutePath());
+        imageMap.put(key, image);
+        return image;
+      } catch (Exception e) {
+        cacheFile.delete();
+      }
+    }
+
+    // Cache miss - render from SVG
+    SwtUniversalImage svg = SwtSvgImageUtil.getImage(display, location);
+    image =
+        new Image(display, svg.getAsBitmapForSize(display, realWidth, realHeight), SWT.IMAGE_COPY);
+    svg.dispose();
+
+    // Save to disk cache
+    saveToBitmapCache(image, cacheFile);
+
+    imageMap.put(key, image);
     return image;
   }
 
@@ -1429,49 +1633,79 @@ public class GuiResource {
     builder.append('|').append(width).append('|').append(height).append('|').append(disabled);
     String key = builder.toString();
 
+    // Check in-memory cache first (fastest)
     Image image = imageMap.get(key);
-    if (image == null) {
-      SwtUniversalImage svg = SwtSvgImageUtil.getUniversalImage(display, classLoader, location);
+    if (image != null) {
+      return image;
+    }
 
-      Image zoomedImaged = getZoomedImaged(svg, display, width, height);
-      if (disabled) {
-        // First disabled the image...
-        //
-        image = new Image(display, zoomedImaged, SWT.IMAGE_GRAY);
+    // Calculate zoomed dimensions
+    int realWidth = (int) Math.round(width * zoomFactor);
+    int realHeight = (int) Math.round(height * zoomFactor);
 
-        // Now darken or lighten the image...
-        //
-        float factor;
-        if (PropsUi.getInstance().isDarkMode()) {
-          factor = 0.4f;
-        } else {
-          factor = 2.5f;
-        }
+    // Build cache file name including disabled flag
+    String disabledSuffix = disabled ? "_disabled" : "";
+    java.io.File cacheFile = getBitmapCacheFile(location + disabledSuffix, realWidth, realHeight);
 
-        ImageData data = image.getImageData();
-        for (int x = 0; x < data.width; x++) {
-          for (int y = 0; y < data.height; y++) {
-            int pixel = data.getPixel(x, y);
-            int a = (pixel >> 24) & 0xFF;
-            int b = (pixel >> 16) & 0xFF;
-            int g = (pixel >> 8) & 0xFF;
-            int r = pixel & 0xFF;
-            a = (int) (a * factor);
-            b = (int) (b * factor);
-            g = (int) (g * factor);
-            r = (int) (r * factor);
-            data.setPixel(x, y, r + (g << 8) + (b << 16) + (a << 25));
-          }
-          image.dispose();
-          image = new Image(display, data);
-        }
+    // Try to load from disk bitmap cache
+    if (cacheFile.exists()) {
+      try {
+        image = new Image(display, cacheFile.getAbsolutePath());
+        imageMap.put(key, image);
+        return image;
+      } catch (Exception e) {
+        // Cache corrupted, regenerate
+        cacheFile.delete();
+      }
+    }
+
+    // Cache miss - render from SVG
+    SwtUniversalImage svg = SwtSvgImageUtil.getUniversalImage(display, classLoader, location);
+    Image zoomedImaged = getZoomedImaged(svg, display, width, height);
+
+    if (disabled) {
+      // First disabled the image...
+      //
+      image = new Image(display, zoomedImaged, SWT.IMAGE_GRAY);
+
+      // Now darken or lighten the image...
+      //
+      float factor;
+      if (PropsUi.getInstance().isDarkMode()) {
+        factor = 0.4f;
       } else {
-        image = new Image(display, zoomedImaged, SWT.IMAGE_COPY);
+        factor = 2.5f;
       }
 
-      svg.dispose();
-      imageMap.put(key, image);
+      ImageData data = image.getImageData();
+      for (int x = 0; x < data.width; x++) {
+        for (int y = 0; y < data.height; y++) {
+          int pixel = data.getPixel(x, y);
+          int a = (pixel >> 24) & 0xFF;
+          int b = (pixel >> 16) & 0xFF;
+          int g = (pixel >> 8) & 0xFF;
+          int r = pixel & 0xFF;
+          a = (int) (a * factor);
+          b = (int) (b * factor);
+          g = (int) (g * factor);
+          r = (int) (r * factor);
+          data.setPixel(x, y, r + (g << 8) + (b << 16) + (a << 25));
+        }
+        image.dispose();
+        image = new Image(display, data);
+      }
+    } else {
+      image = new Image(display, zoomedImaged, SWT.IMAGE_COPY);
     }
+
+    svg.dispose();
+
+    // Save to disk cache for next startup
+    saveToBitmapCache(image, cacheFile);
+
+    // Save to in-memory cache
+    imageMap.put(key, image);
+
     return image;
   }
 

@@ -17,6 +17,7 @@
 
 package org.apache.hop.projects.project;
 
+import java.io.File;
 import java.util.Objects;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.vfs2.FileObject;
@@ -39,6 +40,16 @@ public class ProjectConfig {
     this.projectName = projectName;
     this.projectHome = projectHome;
     this.configFilename = configFilename;
+  }
+
+  /**
+   * Check if a path is a VFS path (contains a scheme like sftp://, s3://, etc.)
+   *
+   * @param path the path to check
+   * @return true if this is a VFS path
+   */
+  private boolean isVfsPath(String path) {
+    return path != null && path.contains("://");
   }
 
   @Override
@@ -69,12 +80,25 @@ public class ProjectConfig {
   public String getActualProjectConfigFilename(IVariables variables) throws HopException {
     try {
       String actualHomeFolder = variables.resolve(getProjectHome());
-      FileObject actualHome = HopVfs.getFileObject(actualHomeFolder);
-      if (!actualHome.exists()) {
+
+      // Use standard Java I/O for local paths (faster than VFS)
+      boolean homeExists;
+      String homePath;
+      if (isVfsPath(actualHomeFolder)) {
+        FileObject actualHome = HopVfs.getFileObject(actualHomeFolder);
+        homeExists = actualHome.exists();
+        homePath = actualHome.toString();
+      } else {
+        File actualHome = new File(actualHomeFolder);
+        homeExists = actualHome.exists();
+        homePath = actualHome.getAbsolutePath();
+      }
+
+      if (!homeExists) {
         throw new HopException("Project home folder '" + actualHomeFolder + "' does not exist");
       }
       String actualConfigFilename = variables.resolve(getConfigFilename());
-      String fullFilename = FilenameUtils.concat(actualHome.toString(), actualConfigFilename);
+      String fullFilename = FilenameUtils.concat(homePath, actualConfigFilename);
       if (fullFilename == null) {
         throw new HopException(
             "Unable to determine full path to the configuration file '"
@@ -102,7 +126,14 @@ public class ProjectConfig {
     }
     Project project = new Project(configFilename);
     try {
-      if (HopVfs.getFileObject(configFilename).exists()) {
+      // Use standard Java I/O for local paths (faster than VFS)
+      boolean configExists;
+      if (isVfsPath(configFilename)) {
+        configExists = HopVfs.getFileObject(configFilename).exists();
+      } else {
+        configExists = new File(configFilename).exists();
+      }
+      if (configExists) {
         project.readFromFile();
       }
     } catch (Exception e) {

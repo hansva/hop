@@ -32,7 +32,6 @@ import org.apache.commons.vfs2.FileSystemException;
 import org.apache.commons.vfs2.Selectors;
 import org.apache.hop.core.Const;
 import org.apache.hop.core.Props;
-import org.apache.hop.core.SwtUniversalImageSvg;
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.exception.HopFileException;
 import org.apache.hop.core.extension.ExtensionPointHandler;
@@ -46,10 +45,6 @@ import org.apache.hop.core.listeners.IContentChangedListener;
 import org.apache.hop.core.plugins.IPlugin;
 import org.apache.hop.core.plugins.PluginRegistry;
 import org.apache.hop.core.search.ISearchable;
-import org.apache.hop.core.svg.SvgCache;
-import org.apache.hop.core.svg.SvgCacheEntry;
-import org.apache.hop.core.svg.SvgFile;
-import org.apache.hop.core.svg.SvgImage;
 import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.vfs.HopVfs;
 import org.apache.hop.i18n.BaseMessages;
@@ -196,6 +191,16 @@ public class ExplorerPerspective implements IHopPerspective, TabClosable {
     this.showingHiddenFiles = false;
   }
 
+  /**
+   * Check if a path is a VFS path (contains a scheme like sftp://, s3://, etc.)
+   *
+   * @param path the path to check
+   * @return true if this is a VFS path
+   */
+  private boolean isVfsPath(String path) {
+    return path != null && path.contains("://");
+  }
+
   public static ExplorerPerspective getInstance() {
     // There can be only one
     if (instance == null) {
@@ -292,17 +297,19 @@ public class ExplorerPerspective implements IHopPerspective, TabClosable {
 
   private void loadTypeImages(Composite parentComposite) {
     typeImageMap = new HashMap<>();
-    int iconSize = (int) (PropsUi.getInstance().getZoomFactor() * 16);
+    int iconSize = 16; // GuiResource.getImage will apply zoom factor
 
     for (IHopFileType fileType : fileTypes) {
       String imageFilename = fileType.getFileTypeImage();
       if (imageFilename != null) {
         try {
-          SvgCacheEntry svgCacheEntry =
-              SvgCache.loadSvg(new SvgFile(imageFilename, fileType.getClass().getClassLoader()));
-          SwtUniversalImageSvg imageSvg =
-              new SwtUniversalImageSvg(new SvgImage(svgCacheEntry.getSvgDocument()));
-          Image image = imageSvg.getAsBitmapForSize(hopGui.getDisplay(), iconSize, iconSize);
+          // Use GuiResource cached image loading for better performance
+          // Note: Images from GuiResource are managed by GuiResource and should NOT be disposed
+          // here
+          Image image =
+              GuiResource.getInstance()
+                  .getImage(
+                      imageFilename, fileType.getClass().getClassLoader(), iconSize, iconSize);
           typeImageMap.put(fileType.getName(), image);
         } catch (Exception e) {
           hopGui
@@ -317,15 +324,7 @@ public class ExplorerPerspective implements IHopPerspective, TabClosable {
         }
       }
     }
-    // Properly dispose images when done...
-    //
-    parentComposite.addListener(
-        SWT.Dispose,
-        e -> {
-          for (Image image : typeImageMap.values()) {
-            image.dispose();
-          }
-        });
+    // Note: We don't dispose these images as they are managed by GuiResource's cache
   }
 
   public void determineRootFolderName(HopGui hopGui) {
@@ -714,13 +713,19 @@ public class ExplorerPerspective implements IHopPerspective, TabClosable {
     try {
       TreeItemFolder tif = (TreeItemFolder) item.getData();
       if (tif != null && tif.fileType != null) {
-        FileObject fileObject = HopVfs.getFileObject(tif.path);
+        // Use standard Java I/O for local paths to check if folder (faster than VFS)
+        boolean isFolder;
+        if (isVfsPath(tif.path)) {
+          isFolder = HopVfs.getFileObject(tif.path).isFolder();
+        } else {
+          isFolder = new java.io.File(tif.path).isDirectory();
+        }
 
         String header =
             BaseMessages.getString(PKG, "ExplorerPerspective.DeleteFile.Confirmation.Header");
         String message =
             BaseMessages.getString(PKG, "ExplorerPerspective.DeleteFile.Confirmation.Message");
-        if (fileObject.isFolder()) {
+        if (isFolder) {
           header =
               BaseMessages.getString(PKG, "ExplorerPerspective.DeleteFolder.Confirmation.Header");
           message =
@@ -733,6 +738,8 @@ public class ExplorerPerspective implements IHopPerspective, TabClosable {
 
         int answer = box.open();
         if ((answer & SWT.YES) != 0) {
+          // For actual delete, still use VFS for full functionality
+          FileObject fileObject = HopVfs.getFileObject(tif.path);
           int deleted = fileObject.deleteAll();
           if (deleted > 0) {
             item.dispose();
@@ -848,12 +855,13 @@ public class ExplorerPerspective implements IHopPerspective, TabClosable {
 
       //
       // Remove the file in refreshDelegate
-      try {
-        hopGui.fileRefreshDelegate.remove(
-            HopVfs.getFileObject(file.getFileTypeHandler().getFilename()).getPublicURIString());
-      } catch (HopFileException e) {
-        hopGui.getLog().logError("Error getting VFS fileObject", e);
-      }
+      //      try {
+      //       hopGui.fileRefreshDelegate.remove(
+      //
+      // HopVfs.getFileObject(file.getFileTypeHandler().getFilename()).getPublicURIString());
+      //      } catch (HopFileException e) {
+      //        hopGui.getLog().logError("Error getting VFS fileObject", e);
+      //      }
 
       // Refresh tree to remove bold
       //
@@ -968,7 +976,7 @@ public class ExplorerPerspective implements IHopPerspective, TabClosable {
     tabItem.setData(explorerFile);
 
     files.add(explorerFile);
-    hopGui.fileRefreshDelegate.register(explorerFile.getFilename(), renderer);
+    //    hopGui.fileRefreshDelegate.register(explorerFile.getFilename(), renderer);
 
     // Add listeners
     HopGuiKeyHandler keyHandler = HopGuiKeyHandler.getInstance();
@@ -1137,8 +1145,13 @@ public class ExplorerPerspective implements IHopPerspective, TabClosable {
       }
       newPath += folder;
       try {
-        FileObject newFolder = HopVfs.getFileObject(newPath);
-        newFolder.createFolder();
+        // Use standard Java I/O for local paths (faster than VFS)
+        if (isVfsPath(newPath)) {
+          FileObject newFolder = HopVfs.getFileObject(newPath);
+          newFolder.createFolder();
+        } else {
+          new java.io.File(newPath).mkdirs();
+        }
 
         refresh();
       } catch (Throwable e) {
@@ -1402,90 +1415,144 @@ public class ExplorerPerspective implements IHopPerspective, TabClosable {
         child.dispose();
       }
 
-      FileObject fileObject = HopVfs.getFileObject(path);
-      FileObject[] children = fileObject.getChildren();
-
-      // Sort by full path ascending
-      Arrays.sort(children, Comparator.comparing(Object::toString));
-
-      for (boolean folder : new boolean[] {true, false}) {
-        for (FileObject child : children) {
-
-          String childName = child.getName().getBaseName();
-          String metadataFolder = hopGui.getVariables().getVariable(Const.HOP_METADATA_FOLDER);
-
-          // Skip hidden files or folders
-          if (!showingHiddenFiles
-              && (child.isHidden()
-                  || childName.startsWith(".")
-                  || child.toString().contains(metadataFolder))) {
-            continue;
-          }
-
-          if (child.isFolder() != folder) {
-            continue;
-          }
-
-          String childPath = child.toString();
-          IHopFileType fileType = getFileType(childPath);
-          TreeItem childItem = new TreeItem(item, SWT.NONE);
-          childItem.setText(childName);
-          setItemImage(childItem, fileType);
-          callPaintListeners(tree, childItem, childPath, childName, fileType);
-          setTreeItemData(childItem, childPath, childName, fileType, depth, folder, true);
-
-          // Recursively add children
-          //
-          if (child.isFolder()) {
-            // What is the maximum depth to lazily load?
-            //
-            String maxDepthString =
-                ExplorerPerspectiveConfigSingleton.getConfig().getLazyLoadingDepth();
-            int maxDepth = Const.toInt(hopGui.getVariables().resolve(maxDepthString), 0);
-            if (depth + 1 <= maxDepth) {
-              // Remember folder data to expand easily
-              //
-              childItem.setData(
-                  new TreeItemFolder(
-                      childItem,
-                      child.getName().getURI(),
-                      childName,
-                      fileType,
-                      depth,
-                      folder,
-                      true));
-
-              // We actually load the content up to the desired depth
-              //
-              refreshFolder(childItem, childPath, depth + 1);
-            } else {
-              // Remember folder data to expand easily
-              //
-              childItem.setData(
-                  new TreeItemFolder(
-                      childItem,
-                      child.getName().getURI(),
-                      childName,
-                      fileType,
-                      depth,
-                      folder,
-                      false));
-
-              // Create a new item to get the "expand" icon but without the content behind it.
-              // The folder just contains an empty item to show the expand icon.
-              //
-              new TreeItem(childItem, SWT.NONE);
-              childItem.setExpanded(false);
-              TreeMemory.getInstance().storeExpanded(FILE_EXPLORER_TREE, childItem, false);
-            }
-          }
-        }
+      // Use standard Java I/O for local paths (faster than VFS)
+      if (isVfsPath(path)) {
+        refreshFolderVfs(item, path, depth);
+      } else {
+        refreshFolderLocal(item, path, depth);
       }
 
     } catch (Exception e) {
       TreeItem treeItem = new TreeItem(item, SWT.NONE);
       treeItem.setText("!!Error refreshing folder!!");
       hopGui.getLog().logError("Error refresh folder '" + path + "'", e);
+    }
+  }
+
+  /** Refresh folder using standard Java I/O (for local paths) */
+  private void refreshFolderLocal(TreeItem item, String path, int depth) throws Exception {
+    java.io.File folder = new java.io.File(path);
+    java.io.File[] children = folder.listFiles();
+
+    if (children == null) {
+      return;
+    }
+
+    // Sort by full path ascending
+    Arrays.sort(children, Comparator.comparing(java.io.File::getAbsolutePath));
+
+    String metadataFolder = hopGui.getVariables().getVariable(Const.HOP_METADATA_FOLDER);
+
+    for (boolean isFolder : new boolean[] {true, false}) {
+      for (java.io.File child : children) {
+
+        String childName = child.getName();
+
+        // Skip hidden files or folders
+        if (!showingHiddenFiles
+            && (child.isHidden()
+                || childName.startsWith(".")
+                || (metadataFolder != null && child.getAbsolutePath().contains(metadataFolder)))) {
+          continue;
+        }
+
+        if (child.isDirectory() != isFolder) {
+          continue;
+        }
+
+        String childPath = child.getAbsolutePath();
+        IHopFileType fileType = getFileType(childPath);
+        TreeItem childItem = new TreeItem(item, SWT.NONE);
+        childItem.setText(childName);
+        setItemImage(childItem, fileType);
+        callPaintListeners(tree, childItem, childPath, childName, fileType);
+        setTreeItemData(childItem, childPath, childName, fileType, depth, isFolder, true);
+
+        // Recursively add children
+        //
+        if (child.isDirectory()) {
+          String maxDepthString =
+              ExplorerPerspectiveConfigSingleton.getConfig().getLazyLoadingDepth();
+          int maxDepth = Const.toInt(hopGui.getVariables().resolve(maxDepthString), 0);
+          if (depth + 1 <= maxDepth) {
+            childItem.setData(
+                new TreeItemFolder(
+                    childItem, childPath, childName, fileType, depth, isFolder, true));
+            refreshFolder(childItem, childPath, depth + 1);
+          } else {
+            childItem.setData(
+                new TreeItemFolder(
+                    childItem, childPath, childName, fileType, depth, isFolder, false));
+            new TreeItem(childItem, SWT.NONE);
+            childItem.setExpanded(false);
+            TreeMemory.getInstance().storeExpanded(FILE_EXPLORER_TREE, childItem, false);
+          }
+        }
+      }
+    }
+  }
+
+  /** Refresh folder using VFS (for remote paths) */
+  private void refreshFolderVfs(TreeItem item, String path, int depth) throws Exception {
+    FileObject fileObject = HopVfs.getFileObject(path);
+    FileObject[] children = fileObject.getChildren();
+
+    // Sort by full path ascending
+    Arrays.sort(children, Comparator.comparing(Object::toString));
+
+    for (boolean folder : new boolean[] {true, false}) {
+      for (FileObject child : children) {
+
+        String childName = child.getName().getBaseName();
+        String metadataFolder = hopGui.getVariables().getVariable(Const.HOP_METADATA_FOLDER);
+
+        // Skip hidden files or folders
+        if (!showingHiddenFiles
+            && (child.isHidden()
+                || childName.startsWith(".")
+                || child.toString().contains(metadataFolder))) {
+          continue;
+        }
+
+        if (child.isFolder() != folder) {
+          continue;
+        }
+
+        String childPath = child.toString();
+        IHopFileType fileType = getFileType(childPath);
+        TreeItem childItem = new TreeItem(item, SWT.NONE);
+        childItem.setText(childName);
+        setItemImage(childItem, fileType);
+        callPaintListeners(tree, childItem, childPath, childName, fileType);
+        setTreeItemData(childItem, childPath, childName, fileType, depth, folder, true);
+
+        // Recursively add children
+        //
+        if (child.isFolder()) {
+          String maxDepthString =
+              ExplorerPerspectiveConfigSingleton.getConfig().getLazyLoadingDepth();
+          int maxDepth = Const.toInt(hopGui.getVariables().resolve(maxDepthString), 0);
+          if (depth + 1 <= maxDepth) {
+            childItem.setData(
+                new TreeItemFolder(
+                    childItem, child.getName().getURI(), childName, fileType, depth, folder, true));
+            refreshFolder(childItem, childPath, depth + 1);
+          } else {
+            childItem.setData(
+                new TreeItemFolder(
+                    childItem,
+                    child.getName().getURI(),
+                    childName,
+                    fileType,
+                    depth,
+                    folder,
+                    false));
+            new TreeItem(childItem, SWT.NONE);
+            childItem.setExpanded(false);
+            TreeMemory.getInstance().storeExpanded(FILE_EXPLORER_TREE, childItem, false);
+          }
+        }
+      }
     }
   }
 

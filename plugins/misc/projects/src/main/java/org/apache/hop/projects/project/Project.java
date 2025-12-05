@@ -97,26 +97,41 @@ public class Project extends ConfigFile implements IConfigFile {
     this.configFilename = configFilename;
   }
 
+  /**
+   * Check if a path is a VFS path (contains a scheme like sftp://, s3://, etc.)
+   *
+   * @param path the path to check
+   * @return true if this is a VFS path
+   */
+  private boolean isVfsPath(String path) {
+    return path != null && path.contains("://");
+  }
+
   @Override
   public void saveToFile() throws HopException {
     try {
-
-      FileObject file = HopVfs.getFileObject(configFilename);
-
-      // Does the parent folder of the file exist?
-      //
-      if (!file.getParent().exists()) {
-        // Create it (and parents) to make sure.
-        //
-        file.getParent().createFolder();
-      }
-
       ObjectMapper objectMapper = HopJson.newMapper();
       objectMapper.setSerializationInclusion(JsonInclude.Include.NON_DEFAULT);
       objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
 
-      OutputStream outputStream = HopVfs.getOutputStream(file, false);
-      objectMapper.writeValue(outputStream, this);
+      // Use standard Java I/O for local paths (faster than VFS)
+      if (isVfsPath(configFilename)) {
+        FileObject file = HopVfs.getFileObject(configFilename);
+        // Does the parent folder of the file exist?
+        if (!file.getParent().exists()) {
+          file.getParent().createFolder();
+        }
+        OutputStream outputStream = HopVfs.getOutputStream(file, false);
+        objectMapper.writeValue(outputStream, this);
+      } else {
+        File file = new File(configFilename);
+        // Does the parent folder of the file exist?
+        File parentFolder = file.getParentFile();
+        if (parentFolder != null && !parentFolder.exists()) {
+          parentFolder.mkdirs();
+        }
+        objectMapper.writeValue(file, this);
+      }
     } catch (Exception e) {
       throw new HopException(
           "Error saving project configuration to file '" + configFilename + "'", e);
@@ -126,18 +141,26 @@ public class Project extends ConfigFile implements IConfigFile {
   @Override
   public void readFromFile() throws HopException {
     ObjectMapper objectMapper = HopJson.newMapper();
-    try (InputStream inputStream = HopVfs.getInputStream(configFilename)) {
-      Project project = objectMapper.readValue(inputStream, Project.class);
+    try {
+      // Use standard Java I/O for local paths (faster than VFS)
+      InputStream inputStream =
+          isVfsPath(configFilename)
+              ? HopVfs.getInputStream(configFilename)
+              : new java.io.FileInputStream(new File(configFilename));
 
-      this.description = project.description;
-      this.company = project.company;
-      this.department = project.department;
-      this.metadataBaseFolder = project.metadataBaseFolder;
-      this.unitTestsBasePath = project.unitTestsBasePath;
-      this.dataSetsCsvFolder = project.dataSetsCsvFolder;
-      this.enforcingExecutionInHome = project.enforcingExecutionInHome;
-      this.configMap = project.configMap;
-      this.parentProjectName = project.parentProjectName;
+      try (inputStream) {
+        Project project = objectMapper.readValue(inputStream, Project.class);
+
+        this.description = project.description;
+        this.company = project.company;
+        this.department = project.department;
+        this.metadataBaseFolder = project.metadataBaseFolder;
+        this.unitTestsBasePath = project.unitTestsBasePath;
+        this.dataSetsCsvFolder = project.dataSetsCsvFolder;
+        this.enforcingExecutionInHome = project.enforcingExecutionInHome;
+        this.configMap = project.configMap;
+        this.parentProjectName = project.parentProjectName;
+      }
     } catch (Exception e) {
       throw new HopException(
           "Error saving project configuration to file '" + configFilename + "'", e);
@@ -200,9 +223,16 @@ public class Project extends ConfigFile implements IConfigFile {
     for (String configurationFile : configurationFiles) {
       String realConfigurationFile = variables.resolve(configurationFile);
 
-      FileObject file = HopVfs.getFileObject(realConfigurationFile);
+      // Use standard Java I/O for local paths (faster than VFS)
+      boolean configFileExists;
       try {
-        if (file.exists()) {
+        if (isVfsPath(realConfigurationFile)) {
+          FileObject file = HopVfs.getFileObject(realConfigurationFile);
+          configFileExists = file.exists();
+        } else {
+          configFileExists = new File(realConfigurationFile).exists();
+        }
+        if (configFileExists) {
           ConfigFile configFile = new DescribedVariablesConfigFile(realConfigurationFile);
 
           configFile.readFromFile();
@@ -347,9 +377,17 @@ public class Project extends ConfigFile implements IConfigFile {
   private void buildPipelineMap(IVariables variables) throws IOException, HopFileException {
     pipelineTransformsMap = new HashMap<>();
     pipelinePaths = new ArrayList<>();
-    File projectFolder =
-        new File(String.valueOf(HopVfs.getFileObject(configFilename).getParent().getPath()));
-    if (projectFolder.isDirectory()) {
+
+    // Use standard Java I/O for local paths (faster than VFS)
+    File projectFolder;
+    if (isVfsPath(configFilename)) {
+      projectFolder =
+          new File(String.valueOf(HopVfs.getFileObject(configFilename).getParent().getPath()));
+    } else {
+      projectFolder = new File(configFilename).getParentFile();
+    }
+
+    if (projectFolder != null && projectFolder.isDirectory()) {
       try (Stream<Path> walk = Files.walk(projectFolder.toPath())) {
         pipelinePaths =
             walk.filter(p -> !Files.isDirectory(p))
@@ -367,9 +405,17 @@ public class Project extends ConfigFile implements IConfigFile {
   private void buildWorkflowMap() throws IOException, HopFileException {
     workflowActionsMap = new HashMap<>();
     workflowPaths = new ArrayList<>();
-    File projectFolder =
-        new File(String.valueOf(HopVfs.getFileObject(configFilename).getParent().getPath()));
-    if (projectFolder.isDirectory()) {
+
+    // Use standard Java I/O for local paths (faster than VFS)
+    File projectFolder;
+    if (isVfsPath(configFilename)) {
+      projectFolder =
+          new File(String.valueOf(HopVfs.getFileObject(configFilename).getParent().getPath()));
+    } else {
+      projectFolder = new File(configFilename).getParentFile();
+    }
+
+    if (projectFolder != null && projectFolder.isDirectory()) {
       try (Stream<Path> walk = Files.walk(projectFolder.toPath())) {
         workflowPaths =
             walk.filter(p -> !Files.isDirectory(p))

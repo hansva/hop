@@ -87,12 +87,24 @@ public class ParquetFileType implements IHopFileType {
     return new EmptyHopFileTypeHandler();
   }
 
+  private boolean isVfsPath(String path) {
+    return path != null && path.contains("://");
+  }
+
   @Override
   public boolean isHandledBy(String filename, boolean checkContent) throws HopException {
     try {
-      FileObject fileObject = HopVfs.getFileObject(filename);
-      FileName fileName = fileObject.getName();
-      String fileExtension = fileName.getExtension().toLowerCase();
+      // Use standard Java I/O for local paths (faster than VFS)
+      String fileExtension;
+      if (isVfsPath(filename)) {
+        FileObject fileObject = HopVfs.getFileObject(filename);
+        FileName fileName = fileObject.getName();
+        fileExtension = fileName.getExtension().toLowerCase();
+      } else {
+        String name = new java.io.File(filename).getName();
+        int lastDot = name.lastIndexOf('.');
+        fileExtension = lastDot >= 0 ? name.substring(lastDot + 1).toLowerCase() : "";
+      }
 
       // No extension
       if (Utils.isEmpty(fileExtension)) return false;

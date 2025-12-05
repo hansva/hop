@@ -17,6 +17,7 @@
 
 package org.apache.hop.ui.hopgui.file;
 
+import java.io.File;
 import java.util.Properties;
 import org.apache.commons.vfs2.FileName;
 import org.apache.commons.vfs2.FileObject;
@@ -43,6 +44,16 @@ public abstract class HopFileTypeBase implements IHopFileType {
     return obj.getClass().equals(this.getClass()); // same class is enough
   }
 
+  /**
+   * Check if a path is a VFS path (contains a scheme like sftp://, s3://, etc.)
+   *
+   * @param path the path to check
+   * @return true if this is a VFS path
+   */
+  private boolean isVfsPath(String path) {
+    return path != null && path.contains("://");
+  }
+
   @Override
   public boolean isHandledBy(String filename, boolean checkContent) throws HopException {
     try {
@@ -52,9 +63,17 @@ public abstract class HopFileTypeBase implements IHopFileType {
                 + filename
                 + "'");
       } else {
-        FileObject fileObject = HopVfs.getFileObject(filename);
-        FileName fileName = fileObject.getName();
-        String fileExtension = fileName.getExtension().toLowerCase();
+        // Use standard Java I/O for local paths (faster than VFS)
+        String fileExtension;
+        if (isVfsPath(filename)) {
+          FileObject fileObject = HopVfs.getFileObject(filename);
+          FileName fileName = fileObject.getName();
+          fileExtension = fileName.getExtension().toLowerCase();
+        } else {
+          String name = new File(filename).getName();
+          int lastDot = name.lastIndexOf('.');
+          fileExtension = lastDot >= 0 ? name.substring(lastDot + 1).toLowerCase() : "";
+        }
 
         // No extension
         if (Utils.isEmpty(fileExtension)) return false;

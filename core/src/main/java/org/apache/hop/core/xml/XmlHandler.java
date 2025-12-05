@@ -509,17 +509,36 @@ public class XmlHandler {
   }
 
   /**
-   * Load a file into an XML document
+   * Load a file into an XML document. Uses standard Java I/O for local files (faster than VFS).
    *
    * @param filename The filename to load into a document
    * @return the Document if all went well, null if an error occurred!
    */
   public static Document loadXmlFile(String filename) throws HopXmlException {
     try {
+      // Use standard Java I/O for local files (much faster than VFS)
+      if (!isVfsPath(filename)) {
+        return loadXmlFile(new java.io.File(filename));
+      }
+      // Fall back to VFS for remote/virtual filesystems
       return loadXmlFile(HopVfs.getFileObject(filename));
     } catch (Exception e) {
       throw new HopXmlException(e);
     }
+  }
+
+  /**
+   * Check if a path is a VFS path (contains a scheme like sftp://, s3://, etc.)
+   *
+   * @param path the path to check
+   * @return true if this is a VFS path
+   */
+  private static boolean isVfsPath(String path) {
+    if (path == null) {
+      return false;
+    }
+    // VFS paths contain "://" scheme separator
+    return path.contains("://");
   }
 
   /**

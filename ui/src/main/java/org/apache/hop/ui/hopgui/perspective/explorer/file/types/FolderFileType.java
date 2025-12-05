@@ -18,6 +18,7 @@
 
 package org.apache.hop.ui.hopgui.perspective.explorer.file.types;
 
+import java.io.File;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
@@ -80,6 +81,10 @@ public class FolderFileType implements IHopFileType {
     return new EmptyHopFileTypeHandler();
   }
 
+  private boolean isVfsPath(String path) {
+    return path != null && path.contains("://");
+  }
+
   /**
    * See if this is a folder
    *
@@ -91,7 +96,12 @@ public class FolderFileType implements IHopFileType {
   @Override
   public boolean isHandledBy(String filename, boolean checkContent) throws HopException {
     try {
-      return HopVfs.getFileObject(filename).isFolder();
+      // Use standard Java I/O for local paths (faster than VFS)
+      if (isVfsPath(filename)) {
+        return HopVfs.getFileObject(filename).isFolder();
+      } else {
+        return new File(filename).isDirectory();
+      }
     } catch (Exception e) {
       throw new HopException("Error seeing if file '" + filename + "' is a folder", e);
     }

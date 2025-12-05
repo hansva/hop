@@ -255,9 +255,24 @@ public class GitGuiPlugin
     }
   }
 
+  /**
+   * Check if a path is a VFS path (contains a scheme like sftp://, s3://, etc.)
+   *
+   * @param path the path to check
+   * @return true if this is a VFS path
+   */
+  private boolean isVfsPath(String path) {
+    return path != null && path.contains("://");
+  }
+
   private boolean fileExists(String file) throws HopFileException, FileSystemException {
     String filename = git.getDirectory() + File.separator + file;
-    return HopVfs.getFileObject(filename).exists();
+    // Use standard Java I/O for local paths (faster than VFS)
+    if (isVfsPath(filename)) {
+      return HopVfs.getFileObject(filename).exists();
+    } else {
+      return new File(filename).exists();
+    }
   }
 
   @GuiMenuElement(
@@ -635,9 +650,17 @@ public class GitGuiPlugin
 
   private String calculateRelativePath(String directory, ExplorerFile explorerFile) {
     try {
-      FileObject file = HopVfs.getFileObject(explorerFile.getFilename());
-      FileObject root = HopVfs.getFileObject(directory);
-      return root.getName().getRelativeName(file.getName());
+      String filename = explorerFile.getFilename();
+      // Use standard Java I/O for local paths (faster than VFS)
+      if (isVfsPath(filename) || isVfsPath(directory)) {
+        FileObject file = HopVfs.getFileObject(filename);
+        FileObject root = HopVfs.getFileObject(directory);
+        return root.getName().getRelativeName(file.getName());
+      } else {
+        java.nio.file.Path filePath = new File(filename).toPath().toAbsolutePath().normalize();
+        java.nio.file.Path rootPath = new File(directory).toPath().toAbsolutePath().normalize();
+        return rootPath.relativize(filePath).toString();
+      }
     } catch (Exception e) {
       LogChannel.UI.logError(
           "Error calculating relative path for filename '"
@@ -660,8 +683,17 @@ public class GitGuiPlugin
     // OK, let's see if we can determine the current git instance...
     //
     try {
-      FileObject gitConfig = HopVfs.getFileObject(rootFolder + "/.git/config");
-      if (gitConfig.exists()) {
+      String gitConfigPath = rootFolder + "/.git/config";
+      // Use standard Java I/O for local paths (faster than VFS)
+      boolean gitConfigExists;
+      if (isVfsPath(gitConfigPath)) {
+        FileObject gitConfig = HopVfs.getFileObject(gitConfigPath);
+        gitConfigExists = gitConfig.exists();
+      } else {
+        gitConfigExists = new File(gitConfigPath).exists();
+      }
+
+      if (gitConfigExists) {
         git = new UIGit();
         git.openRepo(rootFolder);
         setBranchLabel(git.getBranch());
@@ -686,7 +718,12 @@ public class GitGuiPlugin
    */
   private String getAbsoluteFilename(String path) {
     try {
-      path = HopVfs.getFileObject(path).getName().getPath();
+      // Use standard Java I/O for local paths (faster than VFS)
+      if (isVfsPath(path)) {
+        path = HopVfs.getFileObject(path).getName().getPath();
+      } else {
+        path = new File(path).getAbsolutePath();
+      }
     } catch (Exception e) {
       // Ignore, keep simple path
     }
@@ -703,7 +740,12 @@ public class GitGuiPlugin
   private String getAbsoluteFilename(String root, String relativePath) {
     String path = root + File.separator + relativePath;
     try {
-      path = HopVfs.getFileObject(path).getName().getPath();
+      // Use standard Java I/O for local paths (faster than VFS)
+      if (isVfsPath(path)) {
+        path = HopVfs.getFileObject(path).getName().getPath();
+      } else {
+        path = new File(path).getAbsolutePath();
+      }
     } catch (Exception e) {
       // Ignore, keep simple path
     }
