@@ -16,8 +16,8 @@
  */
 package org.apache.hop.mongo.wrapper;
 
-import com.mongodb.MongoClient;
 import com.mongodb.MongoCredential;
+import com.mongodb.client.MongoClient;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.hop.mongo.MongoDbException;
@@ -65,7 +65,7 @@ class UsernamePasswordMongoClientWrapper extends NoAuthMongoClientWrapper {
     List<MongoCredential> credList = new ArrayList<>();
     String authDatabase = props.get(MongoProp.AUTH_DATABASE);
     String authMecha = props.get(MongoProp.AUTH_MECHA);
-    // if not value on AUTH_MECHA set "MONGODB-CR" default authentication mechanism
+    // if not value on AUTH_MECHA set default authentication mechanism
     if (authMecha == null) {
       authMecha = "";
     }
@@ -82,6 +82,12 @@ class UsernamePasswordMongoClientWrapper extends NoAuthMongoClientWrapper {
               props.get(MongoProp.USERNAME),
               authDatabase,
               props.get(MongoProp.PASSWORD).toCharArray()));
+    } else if (authMecha.equalsIgnoreCase("SCRAM-SHA-256")) {
+      credList.add(
+          MongoCredential.createScramSha256Credential(
+              props.get(MongoProp.USERNAME),
+              authDatabase,
+              props.get(MongoProp.PASSWORD).toCharArray()));
     } else if (authMecha.equalsIgnoreCase("PLAIN")) {
       credList.add(
           MongoCredential.createPlainCredential(
@@ -89,6 +95,7 @@ class UsernamePasswordMongoClientWrapper extends NoAuthMongoClientWrapper {
               authDatabase,
               props.get(MongoProp.PASSWORD).toCharArray()));
     } else {
+      // Default to SCRAM-SHA-256 (the modern default)
       credList.add(
           MongoCredential.createCredential(
               props.get(MongoProp.USERNAME),

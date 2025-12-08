@@ -17,8 +17,6 @@
 
 package org.apache.hop.pipeline.transforms.mongodboutput;
 
-import com.mongodb.DBObject;
-import com.mongodb.MongoClient;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -47,6 +45,7 @@ import org.apache.hop.ui.core.widget.MetaSelectionLine;
 import org.apache.hop.ui.core.widget.TableView;
 import org.apache.hop.ui.core.widget.TextVar;
 import org.apache.hop.ui.pipeline.transform.BaseTransformDialog;
+import org.bson.Document;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.CCombo;
 import org.eclipse.swt.custom.CTabFolder;
@@ -1115,14 +1114,14 @@ public class MongoDbOutputDialog extends BaseTransformDialog {
           BaseMessages.getString(PKG, "MongoDbOutputDialog.PreviewDocStructure.Title"); //
 
       if (!wbModifierUpdate.getSelection()) {
-        DBObject result =
+        Object result =
             MongoDbOutputData.hopRowToMongo(
                 mongoFields, r, dummyRow, topLevelStruct, hasTopLevelJSONDocInsert);
         toDisplay = prettyPrintDocStructure(result.toString());
       } else {
-        DBObject query =
+        Document query =
             MongoDbOutputData.getQueryObject(mongoFields, r, dummyRow, vs, topLevelStruct);
-        DBObject modifier =
+        Document modifier =
             new MongoDbOutputData()
                 .getModifierUpdateObject(mongoFields, r, dummyRow, vs, topLevelStruct);
         toDisplay =
@@ -1166,7 +1165,6 @@ public class MongoDbOutputDialog extends BaseTransformDialog {
     String connectionName = variables.resolve(wConnection.getText());
 
     if (!StringUtils.isEmpty(connectionName)) {
-      MongoClient conn = null;
       try {
         MongoDbOutputMeta meta = new MongoDbOutputMeta();
         getInfo(meta);
@@ -1208,11 +1206,6 @@ public class MongoDbOutputDialog extends BaseTransformDialog {
                 + CONST_NEWLING
                 + e.getMessage(),
             e); //
-      } finally {
-        if (conn != null) {
-          conn.close();
-          conn = null;
-        }
       }
     }
   }

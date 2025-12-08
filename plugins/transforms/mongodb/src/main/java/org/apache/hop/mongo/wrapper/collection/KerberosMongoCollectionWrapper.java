@@ -17,24 +17,28 @@
 
 package org.apache.hop.mongo.wrapper.collection;
 
-import com.mongodb.DBCollection;
-import com.mongodb.DBCursor;
+import com.mongodb.client.FindIterable;
+import com.mongodb.client.MongoCollection;
 import org.apache.hop.mongo.AuthContext;
 import org.apache.hop.mongo.wrapper.KerberosInvocationHandler;
 import org.apache.hop.mongo.wrapper.cursor.KerberosMongoCursorWrapper;
 import org.apache.hop.mongo.wrapper.cursor.MongoCursorWrapper;
+import org.bson.Document;
 
 public class KerberosMongoCollectionWrapper extends DefaultMongoCollectionWrapper {
   private final AuthContext authContext;
 
-  public KerberosMongoCollectionWrapper(DBCollection collection, AuthContext authContext) {
+  public KerberosMongoCollectionWrapper(
+      MongoCollection<Document> collection, AuthContext authContext) {
     super(collection);
     this.authContext = authContext;
   }
 
   @Override
-  protected MongoCursorWrapper wrap(DBCursor cursor) {
+  protected MongoCursorWrapper wrap(FindIterable<Document> findIterable) {
     return KerberosInvocationHandler.wrap(
-        MongoCursorWrapper.class, authContext, new KerberosMongoCursorWrapper(cursor, authContext));
+        MongoCursorWrapper.class,
+        authContext,
+        new KerberosMongoCursorWrapper(findIterable, authContext));
   }
 }

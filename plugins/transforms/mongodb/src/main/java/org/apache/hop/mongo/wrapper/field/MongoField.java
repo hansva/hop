@@ -18,8 +18,6 @@
 package org.apache.hop.mongo.wrapper.field;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.mongodb.BasicDBList;
-import com.mongodb.BasicDBObject;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Date;
@@ -269,7 +267,7 @@ public class MongoField implements Comparable<MongoField> {
    * @return the Hop field value
    * @throws HopException if a problem occurs
    */
-  public Object convertToHopValue(BasicDBObject mongoObject) throws HopException {
+  public Object convertToHopValue(Document mongoObject) throws HopException {
 
     if (mongoObject == null) {
       return null;
@@ -309,12 +307,12 @@ public class MongoField implements Comparable<MongoField> {
       return getHopValue(fieldValue);
     }
 
-    if (fieldValue instanceof BasicDBObject basicDBObject) {
-      return convertToHopValue(basicDBObject);
+    if (fieldValue instanceof Document doc) {
+      return convertToHopValue(doc);
     }
 
-    if (fieldValue instanceof BasicDBList basicDBList) {
-      return convertToHopValue(basicDBList);
+    if (fieldValue instanceof List list) {
+      return convertToHopValue(list);
     }
 
     // must mean we have a primitive here, but we're expecting to process more
@@ -329,7 +327,7 @@ public class MongoField implements Comparable<MongoField> {
    * @return the Hop field value
    * @throws HopException if a problem occurs
    */
-  public Object convertToHopValue(BasicDBList mongoList) throws HopException {
+  public Object convertToHopValue(List<?> mongoList) throws HopException {
 
     if (mongoList == null) {
       return null;
@@ -378,12 +376,12 @@ public class MongoField implements Comparable<MongoField> {
       return getHopValue(element);
     }
 
-    if (element instanceof BasicDBObject basicDBObject) {
-      return convertToHopValue(basicDBObject);
+    if (element instanceof Document doc) {
+      return convertToHopValue(doc);
     }
 
-    if (element instanceof BasicDBList basicDBList) {
-      return convertToHopValue(basicDBList);
+    if (element instanceof List list) {
+      return convertToHopValue(list);
     }
 
     // must mean we have a primitive here, but we're expecting to process more

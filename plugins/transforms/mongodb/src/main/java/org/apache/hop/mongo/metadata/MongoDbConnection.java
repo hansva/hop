@@ -49,6 +49,7 @@ import org.apache.hop.mongo.wrapper.MongoWrapperClientFactory;
     hopMetadataPropertyType = HopMetadataPropertyType.MONGODB_CONNECTION)
 public class MongoDbConnection extends HopMetadataBase implements IHopMetadata {
 
+  public static final String WIDGET_ID_CONNECTION_STRING = "09900-connection-string";
   public static final String WIDGET_ID_HOSTNAME = "10000-hostname";
   public static final String WIDGET_ID_PORT = "10100-port";
   public static final String WIDGET_ID_DB_NAME = "10200-database-name";
@@ -68,6 +69,15 @@ public class MongoDbConnection extends HopMetadataBase implements IHopMetadata {
   public static final String WIDGET_ID_WRITE_CONCERN = "11500-write-concern";
   public static final String WIDGET_ID_TIMEOUT_MS = "11600-timeout-ms";
   public static final String WIDGET_ID_JOURNALED = "11700-journaled";
+
+  @HopMetadataProperty
+  @GuiWidgetElement(
+      id = WIDGET_ID_CONNECTION_STRING,
+      type = GuiElementType.TEXT,
+      parentId = MongoDbConnectionEditor.PARENT_WIDGET_ID,
+      label = "i18n::MongoMetadata.ConnectionString.Label",
+      toolTip = "i18n::MongoMetadata.ConnectionString.ToolTip")
+  private String connectionString;
 
   @HopMetadataProperty
   @GuiWidgetElement(
@@ -230,6 +240,7 @@ public class MongoDbConnection extends HopMetadataBase implements IHopMetadata {
 
   public MongoDbConnection(MongoDbConnection m) {
     super(m.name);
+    this.connectionString = m.connectionString;
     this.hostname = m.hostname;
     this.port = m.port;
     this.dbName = m.dbName;
@@ -277,6 +288,8 @@ public class MongoDbConnection extends HopMetadataBase implements IHopMetadata {
   public MongoProperties.Builder createPropertiesBuilder(IVariables variables) {
     MongoProperties.Builder propertiesBuilder = new MongoProperties.Builder();
 
+    setIfNotNullOrEmpty(
+        variables, propertiesBuilder, MongoProp.CONNECTION_STRING, connectionString);
     setIfNotNullOrEmpty(variables, propertiesBuilder, MongoProp.HOST, hostname);
     setIfNotNullOrEmpty(variables, propertiesBuilder, MongoProp.PORT, port);
     setIfNotNullOrEmpty(variables, propertiesBuilder, MongoProp.DBNAME, dbName);
@@ -321,6 +334,22 @@ public class MongoDbConnection extends HopMetadataBase implements IHopMetadata {
     if (StringUtils.isNotEmpty(value)) {
       builder.set(prop, Utils.resolvePassword(variables, variables.resolve(value)));
     }
+  }
+
+  /**
+   * Gets connectionString
+   *
+   * @return value of connectionString
+   */
+  public String getConnectionString() {
+    return connectionString;
+  }
+
+  /**
+   * @param connectionString The connectionString to set
+   */
+  public void setConnectionString(String connectionString) {
+    this.connectionString = connectionString;
   }
 
   /**

@@ -17,10 +17,13 @@
 
 package org.apache.hop.mongo.wrapper;
 
-import com.mongodb.MongoClient;
-import com.mongodb.MongoClientOptions;
+import com.mongodb.ConnectionString;
+import com.mongodb.MongoClientSettings;
 import com.mongodb.MongoCredential;
 import com.mongodb.ServerAddress;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoClients;
+import java.util.Collections;
 import java.util.List;
 
 public class DefaultMongoClientFactory implements MongoClientFactory {
@@ -29,7 +32,7 @@ public class DefaultMongoClientFactory implements MongoClientFactory {
   public MongoClient getMongoClient(
       List<ServerAddress> serverAddressList,
       List<MongoCredential> credList,
-      MongoClientOptions opts,
+      MongoClientSettings.Builder settingsBuilder,
       boolean useReplicaSet) {
     // Mongo's java driver will discover all replica set or shard
     // members (Mongos) automatically when MongoClient is constructed
@@ -39,8 +42,44 @@ public class DefaultMongoClientFactory implements MongoClientFactory {
     // we differentiate here between a list containing one ServerAddress
     // and a single ServerAddress instance via the useAllReplicaSetMembers
     // flag.
-    return useReplicaSet || serverAddressList.size() > 1
-        ? new MongoClient(serverAddressList, credList, opts)
-        : new MongoClient(serverAddressList.get(0), credList, opts);
+
+    List<ServerAddress> hosts =
+        (useReplicaSet || serverAddressList.size() > 1)
+            ? serverAddressList
+            : Collections.singletonList(serverAddressList.get(0));
+
+    settingsBuilder.applyToClusterSettings(
+        builder -> builder.hosts(hosts).mode(getClusterMode(hosts, useReplicaSet)));
+
+    // Apply credentials if provided
+    if (credList != null && !credList.isEmpty()) {
+      // MongoDB 5.x only supports a single credential
+      settingsBuilder.credential(credList.get(0));
+    }
+
+    return MongoClients.create(settingsBuilder.build());
+  }
+
+  private com.mongodb.connection.ClusterConnectionMode getClusterMode(
+      List<ServerAddress> hosts, boolean useReplicaSet) {
+    if (useReplicaSet || hosts.size() > 1) {
+      return com.mongodb.connection.ClusterConnectionMode.MULTIPLE;
+    }
+    return com.mongodb.connection.ClusterConnectionMode.SINGLE;
+  }
+
+  @Override
+  public MongoClient getMongoClient(
+      String connectionString, MongoClientSettings.Builder settingsBuilder) {
+    ConnectionString connString = new ConnectionString(connectionString);
+
+    if (settingsBuilder != null) {
+      // Apply the connection string settings first, then overlay any additional settings
+      settingsBuilder.applyConnectionString(connString);
+      return MongoClients.create(settingsBuilder.build());
+    } else {
+      // Just use the connection string directly
+      return MongoClients.create(connString);
+    }
   }
 }

@@ -17,10 +17,8 @@
 
 package org.apache.hop.pipeline.transforms.mongodbinput;
 
-import com.mongodb.Cursor;
-import com.mongodb.DBObject;
 import com.mongodb.ServerAddress;
-import com.mongodb.util.JSON;
+import com.mongodb.client.AggregateIterable;
 import java.util.List;
 import org.apache.commons.lang.StringUtils;
 import org.apache.hop.core.exception.HopException;
@@ -34,6 +32,7 @@ import org.apache.hop.pipeline.Pipeline;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.transform.BaseTransform;
 import org.apache.hop.pipeline.transform.TransformMeta;
+import org.bson.Document;
 
 public class MongoDbInput extends BaseTransform<MongoDbInputMeta, MongoDbInputData> {
   private static final Class<?> PKG = MongoDbInputMeta.class; // For i18n - Translator
@@ -88,7 +87,7 @@ public class MongoDbInput extends BaseTransform<MongoDbInputMeta, MongoDbInputDa
           ((meta.isQueryIsPipeline() ? data.pipelineResult.hasNext() : data.cursor.hasNext())
               && !isStopped());
       if (hasNext) {
-        DBObject nextDoc = null;
+        Document nextDoc = null;
         Object[] row = null;
         if (meta.isQueryIsPipeline()) {
           nextDoc = data.pipelineResult.next();
@@ -109,7 +108,7 @@ public class MongoDbInput extends BaseTransform<MongoDbInputMeta, MongoDbInputDa
         if (meta.isOutputJson()
             || meta.getMongoFields() == null
             || meta.getMongoFields().isEmpty()) {
-          String json = JSON.serialize(nextDoc);
+          String json = nextDoc.toJson();
           row = RowDataUtil.allocateRowData(data.outputRowMeta.size());
           int index = 0;
 
@@ -183,21 +182,22 @@ public class MongoDbInput extends BaseTransform<MongoDbInputMeta, MongoDbInputDa
 
         logDetailed(BaseMessages.getString(PKG, "MongoDbInput.Message.QueryPulledDataFrom", query));
 
-        List<DBObject> pipeline = MongodbInputDiscoverFieldsImpl.jsonPipelineToDBObjectList(query);
-        DBObject firstP = pipeline.get(0);
-        DBObject[] remainder = null;
+        List<Document> pipeline = MongodbInputDiscoverFieldsImpl.jsonPipelineToDocumentList(query);
+        Document firstP = pipeline.get(0);
+        Document[] remainder = null;
         if (pipeline.size() > 1) {
-          remainder = new DBObject[pipeline.size() - 1];
+          remainder = new Document[pipeline.size() - 1];
           for (int i = 1; i < pipeline.size(); i++) {
             remainder[i - 1] = pipeline.get(i);
           }
         } else {
-          remainder = new DBObject[0];
+          remainder = new Document[0];
         }
 
         // Utilize MongoDB cursor class
-        Cursor cursor = data.collection.aggregate(firstP, remainder);
-        data.pipelineResult = cursor;
+        AggregateIterable<Document> aggregateIterable =
+            data.collection.aggregate(firstP, remainder);
+        data.pipelineResult = aggregateIterable.iterator();
       } else {
         if (meta.getExecuteForEachIncomingRow() && currentInputRowDrivingQuery != null) {
           // do field value substitution
@@ -208,9 +208,9 @@ public class MongoDbInput extends BaseTransform<MongoDbInputMeta, MongoDbInputDa
 
         logDetailed(BaseMessages.getString(PKG, "MongoDbInput.Message.ExecutingQuery", query));
 
-        DBObject dbObject = (DBObject) JSON.parse(StringUtils.isEmpty(query) ? "{}" : query);
-        DBObject dbObject2 = (DBObject) JSON.parse(fields);
-        data.cursor = data.collection.find(dbObject, dbObject2);
+        Document queryDoc = Document.parse(StringUtils.isEmpty(query) ? "{}" : query);
+        Document fieldsDoc = StringUtils.isEmpty(fields) ? null : Document.parse(fields);
+        data.cursor = data.collection.find(queryDoc, fieldsDoc);
       }
     }
   }

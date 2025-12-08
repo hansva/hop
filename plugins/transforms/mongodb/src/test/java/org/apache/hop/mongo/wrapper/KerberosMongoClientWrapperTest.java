@@ -23,41 +23,43 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.mongodb.DBCollection;
-import com.mongodb.MongoClient;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoCollection;
 import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
 import org.apache.hop.mongo.AuthContext;
 import org.apache.hop.mongo.MongoDbException;
 import org.apache.hop.mongo.MongoUtilLogger;
 import org.apache.hop.mongo.wrapper.collection.MongoCollectionWrapper;
+import org.bson.Document;
 import org.junit.jupiter.api.Test;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
 class KerberosMongoClientWrapperTest {
   @Test
+  @SuppressWarnings("unchecked")
   void testWrapProperlyWrapsCollection() throws MongoDbException, PrivilegedActionException {
     MongoClient client = mock(MongoClient.class);
     AuthContext authContext = mock(AuthContext.class);
     MongoUtilLogger log = mock(MongoUtilLogger.class);
-    final DBCollection dbCollection = mock(DBCollection.class);
+    final MongoCollection<Document> mongoCollection = mock(MongoCollection.class);
     String username = "test";
     final KerberosMongoClientWrapper wrapper =
         new KerberosMongoClientWrapper(client, log, username, authContext);
-    MongoCollectionWrapper mongoCollectionWrapper = wrapper.wrap(dbCollection);
+    MongoCollectionWrapper mongoCollectionWrapper = wrapper.wrap(mongoCollection);
     when(authContext.doAs(any(PrivilegedExceptionAction.class)))
         .thenAnswer(
             new Answer<Void>() {
 
               @Override
               public Void answer(InvocationOnMock invocation) throws Throwable {
-                dbCollection.drop();
+                mongoCollection.drop();
                 return null;
               }
             });
     mongoCollectionWrapper.drop();
     verify(authContext, times(1)).doAs(any(PrivilegedExceptionAction.class));
-    verify(dbCollection, times(1)).drop();
+    verify(mongoCollection, times(1)).drop();
   }
 }

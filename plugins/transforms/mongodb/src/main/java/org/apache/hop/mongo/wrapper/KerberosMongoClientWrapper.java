@@ -17,10 +17,10 @@
 
 package org.apache.hop.mongo.wrapper;
 
-import com.mongodb.DBCollection;
-import com.mongodb.MongoClient;
-import com.mongodb.MongoClientOptions;
+import com.mongodb.MongoClientSettings;
 import com.mongodb.MongoCredential;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoCollection;
 import java.util.ArrayList;
 import java.util.List;
 import javax.security.auth.login.LoginContext;
@@ -32,6 +32,7 @@ import org.apache.hop.mongo.MongoProperties;
 import org.apache.hop.mongo.MongoUtilLogger;
 import org.apache.hop.mongo.wrapper.collection.KerberosMongoCollectionWrapper;
 import org.apache.hop.mongo.wrapper.collection.MongoCollectionWrapper;
+import org.bson.Document;
 
 /**
  * Implementation of MongoClientWrapper which uses the GSSAPI auth mechanism. Should only be
@@ -64,8 +65,9 @@ class KerberosMongoClientWrapper extends UsernamePasswordMongoClientWrapper {
   }
 
   @Override
-  protected MongoClient getClient(MongoClientOptions opts) throws MongoDbException {
-    return super.getClient(opts);
+  protected MongoClient getClient(MongoClientSettings.Builder settingsBuilder)
+      throws MongoDbException {
+    return super.getClient(settingsBuilder);
   }
 
   @Override
@@ -76,7 +78,7 @@ class KerberosMongoClientWrapper extends UsernamePasswordMongoClientWrapper {
   }
 
   @Override
-  protected MongoCollectionWrapper wrap(DBCollection collection) {
+  protected MongoCollectionWrapper wrap(MongoCollection<Document> collection) {
     return KerberosInvocationHandler.wrap(
         MongoCollectionWrapper.class,
         authContext,

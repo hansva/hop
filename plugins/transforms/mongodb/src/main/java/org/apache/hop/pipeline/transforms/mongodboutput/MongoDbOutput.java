@@ -17,10 +17,10 @@
 
 package org.apache.hop.pipeline.transforms.mongodboutput;
 
-import com.mongodb.DBObject;
 import com.mongodb.MongoException;
 import com.mongodb.MongoExecutionTimeoutException;
-import com.mongodb.WriteResult;
+import com.mongodb.client.result.InsertManyResult;
+import com.mongodb.client.result.UpdateResult;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -38,6 +38,7 @@ import org.apache.hop.pipeline.Pipeline;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.transform.BaseTransform;
 import org.apache.hop.pipeline.transform.TransformMeta;
+import org.bson.Document;
 
 /**
  * Class providing an output transform for writing data to a MongoDB collection. Supports insert,
@@ -54,7 +55,7 @@ public class MongoDbOutput extends BaseTransform<MongoDbOutputMeta, MongoDbOutpu
   protected int batchInsertSize = 100;
 
   /** Holds a batch of rows converted to documents */
-  protected List<DBObject> batch;
+  protected List<Document> batch;
 
   /** Holds an original batch of rows (corresponding to the converted documents) */
   protected List<Object[]> batchRows;
@@ -162,7 +163,7 @@ public class MongoDbOutput extends BaseTransform<MongoDbOutputMeta, MongoDbOutpu
     if (!isStopped()) {
 
       if (meta.getUpdate()) {
-        DBObject updateQuery =
+        Document updateQuery =
             MongoDbOutputData.getQueryObject(
                 data.getMongoFields(),
                 getInputRowMeta(),
@@ -178,19 +179,22 @@ public class MongoDbOutput extends BaseTransform<MongoDbOutputMeta, MongoDbOutpu
 
         if (updateQuery != null) {
           // i.e. we have some non-null incoming query field values
-          DBObject insertUpdate = null;
+          Document insertUpdate = null;
 
           // get the record to update the match with
           if (!meta.getModifierUpdate()) {
             // complete record replace or insert
 
-            insertUpdate =
+            Object result =
                 MongoDbOutputData.hopRowToMongo(
                     data.getMongoFields(),
                     getInputRowMeta(),
                     row,
                     mongoTopLevelStructure,
                     data.hasTopLevelJsonDocInsert);
+            if (result instanceof Document) {
+              insertUpdate = (Document) result;
+            }
             if (isDebug()) {
               logDebug(
                   BaseMessages.getString(
@@ -225,7 +229,7 @@ public class MongoDbOutput extends BaseTransform<MongoDbOutputMeta, MongoDbOutpu
       } else {
         // straight insert
 
-        DBObject mongoInsert =
+        Object mongoInsert =
             MongoDbOutputData.hopRowToMongo(
                 data.getMongoFields(),
                 getInputRowMeta(),
@@ -233,8 +237,8 @@ public class MongoDbOutput extends BaseTransform<MongoDbOutputMeta, MongoDbOutpu
                 mongoTopLevelStructure,
                 data.hasTopLevelJsonDocInsert);
 
-        if (mongoInsert != null) {
-          batch.add(mongoInsert);
+        if (mongoInsert != null && mongoInsert instanceof Document) {
+          batch.add((Document) mongoInsert);
           batchRows.add(row);
         }
         if (batch.size() == batchInsertSize) {
@@ -253,14 +257,14 @@ public class MongoDbOutput extends BaseTransform<MongoDbOutputMeta, MongoDbOutpu
     return true;
   }
 
-  protected void commitUpdate(DBObject updateQuery, DBObject insertUpdate, Object[] row)
+  protected void commitUpdate(Document updateQuery, Document insertUpdate, Object[] row)
       throws HopException {
 
     int retrys = 0;
     MongoException lastEx = null;
 
     while (retrys <= writeRetries && !isStopped()) {
-      WriteResult result = null;
+      UpdateResult result = null;
       try {
         // TODO It seems that doing an update() via a secondary node does not
         // generate any sort of exception or error result! (at least via
@@ -312,13 +316,13 @@ public class MongoDbOutput extends BaseTransform<MongoDbOutputMeta, MongoDbOutpu
     }
   }
 
-  protected WriteResult batchRetryUsingSave(boolean lastRetry)
+  protected UpdateResult batchRetryUsingSave(boolean lastRetry)
       throws MongoException, HopException, MongoDbException {
-    WriteResult result = null;
+    UpdateResult result = null;
     int count = 0;
     logBasic(BaseMessages.getString(PKG, "MongoDbOutput.Messages.CurrentBatchSize", batch.size()));
     for (int i = 0, len = batch.size(); i < len; i++) {
-      DBObject toTry = batch.get(i);
+      Document toTry = batch.get(i);
       Object[] correspondingRow = batchRows.get(i);
       try {
         result = data.getCollection().save(toTry);
@@ -362,7 +366,7 @@ public class MongoDbOutput extends BaseTransform<MongoDbOutputMeta, MongoDbOutpu
     MongoException lastEx = null;
 
     while (retries <= writeRetries && !isStopped()) {
-      WriteResult result = null;
+      InsertManyResult result = null;
       try {
         if (retries == 0) {
           result = data.getCollection().insert(batch);
@@ -371,7 +375,9 @@ public class MongoDbOutput extends BaseTransform<MongoDbOutputMeta, MongoDbOutpu
           logBasic(
               BaseMessages.getString(
                   PKG, "MongoDbOutput.Messages.SavingIndividualDocsInCurrentBatch"));
-          result = batchRetryUsingSave(retries == writeRetries);
+          batchRetryUsingSave(retries == writeRetries);
+          result = null; // Signal success via different path
+          break;
         }
       } catch (MongoException me) {
         // avoid exception if a timeout issue occurred and it was exactly the first attempt
