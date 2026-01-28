@@ -59,7 +59,6 @@ import org.eclipse.swt.widgets.Group;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.TableItem;
-import org.eclipse.swt.widgets.Text;
 
 public class RestDialog extends BaseTransformDialog {
   private static final Class<?> PKG = RestMeta.class;
@@ -158,27 +157,10 @@ public class RestDialog extends BaseTransformDialog {
 
   @Override
   public String open() {
-    Shell parent = getParent();
-
-    shell = new Shell(parent, SWT.DIALOG_TRIM | SWT.RESIZE | SWT.MAX | SWT.MIN);
-    PropsUi.setLook(shell);
-    setShellImage(shell, input);
+    createShell(BaseMessages.getString(PKG, "RestDialog.Shell.Title"));
 
     ModifyListener lsMod = e -> input.setChanged();
-
     changed = input.hasChanged();
-
-    FormLayout formLayout = new FormLayout();
-    formLayout.marginWidth = PropsUi.getFormMargin();
-    formLayout.marginHeight = PropsUi.getFormMargin();
-
-    shell.setLayout(formLayout);
-    shell.setText(BaseMessages.getString(PKG, "RestDialog.Shell.Title"));
-
-    int middle = props.getMiddlePct();
-    int margin = PropsUi.getMargin();
-
-    setupButtons(margin);
 
     setupTransformName(lsMod, middle, margin);
 
@@ -450,6 +432,7 @@ public class RestDialog extends BaseTransformDialog {
     setMethod();
     input.setChanged(changed);
 
+    buildButtonBar().ok(e -> ok()).cancel(e -> cancel()).build();
     BaseDialog.defaultShellHandling(shell, c -> ok(), c -> cancel());
 
     return transformName;
@@ -748,8 +731,6 @@ public class RestDialog extends BaseTransformDialog {
   }
 
   private void setupConnectionTimeoutLine(ModifyListener lsMod, Group gSettings) {
-    int margin = PropsUi.getMargin();
-    int middle = props.getMiddlePct();
     Label wlConnectionTimeout = new Label(gSettings, SWT.RIGHT);
     wlConnectionTimeout.setText(BaseMessages.getString(PKG, "RestDialog.ConnectionTimeout.Label"));
     PropsUi.setLook(wlConnectionTimeout);
@@ -1265,35 +1246,7 @@ public class RestDialog extends BaseTransformDialog {
   }
 
   private void setupTransformName(ModifyListener lsMod, int middle, int margin) {
-    // TransformName line
-    wlTransformName = new Label(shell, SWT.RIGHT);
-    wlTransformName.setText(BaseMessages.getString(PKG, "RestDialog.TransformName.Label"));
-    PropsUi.setLook(wlTransformName);
-    fdlTransformName = new FormData();
-    fdlTransformName.left = new FormAttachment(0, 0);
-    fdlTransformName.right = new FormAttachment(middle, -margin);
-    fdlTransformName.top = new FormAttachment(0, margin);
-    wlTransformName.setLayoutData(fdlTransformName);
-    wTransformName = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    wTransformName.setText(transformName);
-    PropsUi.setLook(wTransformName);
-    wTransformName.addModifyListener(lsMod);
-    fdTransformName = new FormData();
-    fdTransformName.left = new FormAttachment(middle, 0);
-    fdTransformName.top = new FormAttachment(0, margin);
-    fdTransformName.right = new FormAttachment(100, 0);
-    wTransformName.setLayoutData(fdTransformName);
-  }
-
-  private void setupButtons(int margin) {
-    // THE BUTTONS: at the bottom
-    wOk = new Button(shell, SWT.PUSH);
-    wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
-    wOk.addListener(SWT.Selection, e -> ok());
-    wCancel = new Button(shell, SWT.PUSH);
-    wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
-    wCancel.addListener(SWT.Selection, e -> cancel());
-    setButtonPositions(new Button[] {wOk, wCancel}, margin, null);
+    // TransformName line is already created by createShell()
   }
 
   protected void setMethod() {

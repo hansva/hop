@@ -67,7 +67,6 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.TableItem;
-import org.eclipse.swt.widgets.Text;
 
 public class WorkflowExecutorDialog extends BaseTransformDialog {
   private static final Class<?> PKG = WorkflowExecutorMeta.class;
@@ -129,9 +128,6 @@ public class WorkflowExecutorDialog extends BaseTransformDialog {
 
   private TableView wResultRowsFields;
 
-  private final int middle = props.getMiddlePct();
-  private final int margin = PropsUi.getMargin();
-
   private HopWorkflowFileType<WorkflowMeta> fileType =
       HopGui.getExplorerPerspective().getWorkflowFileType();
 
@@ -147,18 +143,7 @@ public class WorkflowExecutorDialog extends BaseTransformDialog {
 
   @Override
   public String open() {
-    Shell parent = getParent();
-
-    shell = new Shell(parent, SWT.DIALOG_TRIM | SWT.RESIZE | SWT.MIN | SWT.MAX);
-    PropsUi.setLook(shell);
-    setShellImage(shell, workflowExecutorMeta);
-
-    FormLayout formLayout = new FormLayout();
-    formLayout.marginWidth = 15;
-    formLayout.marginHeight = 15;
-
-    shell.setLayout(formLayout);
-    shell.setText(BaseMessages.getString(PKG, "WorkflowExecutorDialog.Shell.Title"));
+    createShell(BaseMessages.getString(PKG, "WorkflowExecutorDialog.Shell.Title"));
 
     Label wicon = new Label(shell, SWT.RIGHT);
     wicon.setImage(getImage());
@@ -167,34 +152,6 @@ public class WorkflowExecutorDialog extends BaseTransformDialog {
     fdlicon.right = new FormAttachment(100, 0);
     wicon.setLayoutData(fdlicon);
     PropsUi.setLook(wicon);
-
-    // Some buttons
-    wOk = new Button(shell, SWT.PUSH);
-    wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
-    wOk.addListener(SWT.Selection, e -> ok());
-    wCancel = new Button(shell, SWT.PUSH);
-    wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
-    wCancel.addListener(SWT.Selection, e -> cancel());
-    positionBottomButtons(shell, new Button[] {wOk, wCancel}, PropsUi.getMargin(), null);
-
-    // TransformName line
-    wlTransformName = new Label(shell, SWT.RIGHT);
-    wlTransformName.setText(
-        BaseMessages.getString(PKG, "WorkflowExecutorDialog.TransformName.Label"));
-    PropsUi.setLook(wlTransformName);
-    fdlTransformName = new FormData();
-    fdlTransformName.left = new FormAttachment(0, 0);
-    fdlTransformName.top = new FormAttachment(wicon, 0, SWT.CENTER);
-    fdlTransformName.right = new FormAttachment(middle, -margin);
-    wlTransformName.setLayoutData(fdlTransformName);
-    wTransformName = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    wTransformName.setText(transformName);
-    PropsUi.setLook(wTransformName);
-    fdTransformName = new FormData();
-    fdTransformName.right = new FormAttachment(wicon, -margin);
-    fdTransformName.left = new FormAttachment(wlTransformName, margin);
-    fdTransformName.top = new FormAttachment(wlTransformName, 0, SWT.CENTER);
-    wTransformName.setLayoutData(fdTransformName);
 
     Label spacer = new Label(shell, SWT.HORIZONTAL | SWT.SEPARATOR);
     FormData fdSpacer = new FormData();
@@ -256,18 +213,11 @@ public class WorkflowExecutorDialog extends BaseTransformDialog {
     PropsUi.setLook(wTabFolder, Props.WIDGET_STYLE_TAB);
     wTabFolder.setUnselectedCloseVisible(true);
 
-    Label hSpacer = new Label(shell, SWT.HORIZONTAL | SWT.SEPARATOR);
-    FormData fdhSpacer = new FormData();
-    fdhSpacer.left = new FormAttachment(0, 0);
-    fdhSpacer.bottom = new FormAttachment(wCancel, -15);
-    fdhSpacer.right = new FormAttachment(100, 0);
-    hSpacer.setLayoutData(fdhSpacer);
-
     FormData fdTabFolder = new FormData();
     fdTabFolder.left = new FormAttachment(0, 0);
     fdTabFolder.top = new FormAttachment(wRunConfiguration, 20);
     fdTabFolder.right = new FormAttachment(100, 0);
-    fdTabFolder.bottom = new FormAttachment(hSpacer, -15);
+    fdTabFolder.bottom = new FormAttachment(100, -50);
     wTabFolder.setLayoutData(fdTabFolder);
 
     // Add the tabs...
@@ -282,6 +232,7 @@ public class WorkflowExecutorDialog extends BaseTransformDialog {
     workflowExecutorMeta.setChanged(changed);
     wTabFolder.setSelection(0);
 
+    buildButtonBar().ok(e -> ok()).cancel(e -> cancel()).build();
     BaseDialog.defaultShellHandling(shell, c -> ok(), c -> cancel());
 
     return transformName;

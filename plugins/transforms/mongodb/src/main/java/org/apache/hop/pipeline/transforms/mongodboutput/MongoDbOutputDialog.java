@@ -60,7 +60,6 @@ import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.TableItem;
-import org.eclipse.swt.widgets.Text;
 
 /** Dialog class for the MongoDB output transform */
 public class MongoDbOutputDialog extends BaseTransformDialog {
@@ -106,58 +105,13 @@ public class MongoDbOutputDialog extends BaseTransformDialog {
 
   @Override
   public String open() {
-    Shell parent = getParent();
-
-    shell = new Shell(parent, SWT.DIALOG_TRIM | SWT.RESIZE | SWT.MIN | SWT.MAX);
-
-    PropsUi.setLook(shell);
-    setShellImage(shell, currentMeta);
+    createShell(BaseMessages.getString(PKG, "MongoDbOutputDialog.Shell.Title"));
 
     // used to listen to a text field (wTransformName)
     ModifyListener lsMod = e -> currentMeta.setChanged();
-
     changed = currentMeta.hasChanged();
 
-    FormLayout formLayout = new FormLayout();
-    formLayout.marginWidth = PropsUi.getFormMargin();
-    formLayout.marginHeight = PropsUi.getFormMargin();
-
-    shell.setLayout(formLayout);
-    shell.setText(BaseMessages.getString(PKG, "MongoDbOutputDialog.Shell.Title"));
-
-    int middle = props.getMiddlePct();
-    int margin = PropsUi.getMargin();
-
-    // Buttons inherited from BaseTransformDialog
-    wOk = new Button(shell, SWT.PUSH);
-    wOk.setText(BaseMessages.getString(PKG, "System.Button.OK")); //
-    wOk.addListener(SWT.Selection, e -> ok());
-    wCancel = new Button(shell, SWT.PUSH);
-    wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel")); //
-    wCancel.addListener(SWT.Selection, e -> cancel());
-    setButtonPositions(new Button[] {wOk, wCancel}, margin, null);
-
-    // TransformName line
-    wlTransformName = new Label(shell, SWT.RIGHT);
-    wlTransformName.setText(BaseMessages.getString(PKG, "MongoDbOutputDialog.TransformName.Label"));
-    PropsUi.setLook(wlTransformName);
-
-    FormData fd = new FormData();
-    fd.left = new FormAttachment(0, 0);
-    fd.right = new FormAttachment(middle, -margin);
-    fd.top = new FormAttachment(0, margin);
-    wlTransformName.setLayoutData(fd);
-    wTransformName = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    wTransformName.setText(transformName);
-    PropsUi.setLook(wTransformName);
-    wTransformName.addModifyListener(lsMod);
-
-    // format the text field
-    fd = new FormData();
-    fd.left = new FormAttachment(middle, 0);
-    fd.top = new FormAttachment(0, margin);
-    fd.right = new FormAttachment(100, 0);
-    wTransformName.setLayoutData(fd);
+    Control lastControl = wTransformName;
 
     // The tabs of the dialog
     CTabFolder wTabFolder = new CTabFolder(shell, SWT.BORDER);
@@ -190,7 +144,7 @@ public class MongoDbOutputDialog extends BaseTransformDialog {
     fdConnection.right = new FormAttachment(100, 0);
     fdConnection.top = new FormAttachment(0, 0);
     wConnection.setLayoutData(fdConnection);
-    Control lastControl = wConnection;
+    lastControl = wConnection;
 
     try {
       wConnection.fillItems();
@@ -204,7 +158,7 @@ public class MongoDbOutputDialog extends BaseTransformDialog {
     collectionLab.setToolTipText(
         BaseMessages.getString(PKG, "MongoDbOutputDialog.Collection.TipText"));
     PropsUi.setLook(collectionLab);
-    fd = new FormData();
+    FormData fd = new FormData();
     fd.left = new FormAttachment(0, 0);
     fd.top = new FormAttachment(lastControl, margin);
     fd.right = new FormAttachment(middle, -margin);
@@ -615,14 +569,15 @@ public class MongoDbOutputDialog extends BaseTransformDialog {
 
     fd = new FormData();
     fd.left = new FormAttachment(0, 0);
-    fd.top = new FormAttachment(wTransformName, margin);
+    fd.top = new FormAttachment(lastControl, margin);
     fd.right = new FormAttachment(100, 0);
-    fd.bottom = new FormAttachment(wOk, -2 * margin);
+    fd.bottom = new FormAttachment(100, -50);
     wTabFolder.setLayoutData(fd);
 
     wTabFolder.setSelection(0);
     getData();
 
+    buildButtonBar().ok(e -> ok()).cancel(e -> cancel()).build();
     BaseDialog.defaultShellHandling(shell, c -> ok(), c -> cancel());
 
     return transformName;

@@ -111,7 +111,7 @@ public class NotePadDialog extends Dialog {
   public NotePadMeta open() {
     Shell parent = getParent();
 
-    shell = new Shell(parent, SWT.DIALOG_TRIM | SWT.RESIZE | SWT.MAX | SWT.MIN | SWT.NONE);
+    shell = new Shell(parent, BaseDialog.getDefaultDialogStyle());
     PropsUi.setLook(shell);
     shell.setImage(guiresource.getImageNote());
 

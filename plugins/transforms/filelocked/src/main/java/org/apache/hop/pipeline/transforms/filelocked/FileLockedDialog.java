@@ -35,11 +35,10 @@ import org.eclipse.swt.events.FocusListener;
 import org.eclipse.swt.events.ModifyListener;
 import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormData;
-import org.eclipse.swt.layout.FormLayout;
 import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
-import org.eclipse.swt.widgets.Text;
 
 public class FileLockedDialog extends BaseTransformDialog {
   private static final Class<?> PKG = FileLockedMeta.class;
@@ -62,44 +61,12 @@ public class FileLockedDialog extends BaseTransformDialog {
 
   @Override
   public String open() {
-    Shell parent = getParent();
-
-    shell = new Shell(parent, SWT.DIALOG_TRIM | SWT.RESIZE | SWT.MAX | SWT.MIN);
-    PropsUi.setLook(shell);
-    setShellImage(shell, input);
+    createShell(BaseMessages.getString(PKG, "FileLockedDialog.Shell.Title"));
 
     ModifyListener lsMod = e -> input.setChanged();
-
     changed = input.hasChanged();
 
-    FormLayout formLayout = new FormLayout();
-    formLayout.marginWidth = PropsUi.getFormMargin();
-    formLayout.marginHeight = PropsUi.getFormMargin();
-
-    shell.setLayout(formLayout);
-    shell.setText(BaseMessages.getString(PKG, "FileLockedDialog.Shell.Title"));
-
-    int middle = props.getMiddlePct();
-    int margin = PropsUi.getMargin();
-
-    // TransformName line
-    wlTransformName = new Label(shell, SWT.RIGHT);
-    wlTransformName.setText(BaseMessages.getString(PKG, "FileLockedDialog.TransformName.Label"));
-    PropsUi.setLook(wlTransformName);
-    fdlTransformName = new FormData();
-    fdlTransformName.left = new FormAttachment(0, 0);
-    fdlTransformName.right = new FormAttachment(middle, -margin);
-    fdlTransformName.top = new FormAttachment(0, margin);
-    wlTransformName.setLayoutData(fdlTransformName);
-    wTransformName = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    wTransformName.setText(transformName);
-    PropsUi.setLook(wTransformName);
-    wTransformName.addModifyListener(lsMod);
-    fdTransformName = new FormData();
-    fdTransformName.left = new FormAttachment(middle, 0);
-    fdTransformName.top = new FormAttachment(0, margin);
-    fdTransformName.right = new FormAttachment(100, 0);
-    wTransformName.setLayoutData(fdTransformName);
+    Control lastControl = wTransformName;
 
     // filename field
     Label wlFileName = new Label(shell, SWT.RIGHT);
@@ -108,7 +75,7 @@ public class FileLockedDialog extends BaseTransformDialog {
     FormData fdlFileName = new FormData();
     fdlFileName.left = new FormAttachment(0, 0);
     fdlFileName.right = new FormAttachment(middle, -margin);
-    fdlFileName.top = new FormAttachment(wTransformName, margin);
+    fdlFileName.top = new FormAttachment(lastControl, margin);
     wlFileName.setLayoutData(fdlFileName);
 
     wFileName = new CCombo(shell, SWT.BORDER | SWT.READ_ONLY);
@@ -117,7 +84,7 @@ public class FileLockedDialog extends BaseTransformDialog {
     wFileName.addModifyListener(lsMod);
     FormData fdfileName = new FormData();
     fdfileName.left = new FormAttachment(middle, 0);
-    fdfileName.top = new FormAttachment(wTransformName, margin);
+    fdfileName.top = new FormAttachment(lastControl, margin);
     fdfileName.right = new FormAttachment(100, -margin);
     wFileName.setLayoutData(fdfileName);
     wFileName.addFocusListener(
@@ -170,23 +137,13 @@ public class FileLockedDialog extends BaseTransformDialog {
     fdAddResult.top = new FormAttachment(wlAddResult, 0, SWT.CENTER);
     wAddResult.setLayoutData(fdAddResult);
 
-    // THE BUTTONS
-    wOk = new Button(shell, SWT.PUSH);
-    wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
-    wCancel = new Button(shell, SWT.PUSH);
-    wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
-    setButtonPositions(new Button[] {wOk, wCancel}, 2 * margin, wAddResult);
-
-    // Add listeners
-    wOk.addListener(SWT.Selection, e -> ok());
-    wCancel.addListener(SWT.Selection, e -> cancel());
-
     // Set the shell size, based upon previous time...
     setSize();
 
     getData();
     input.setChanged(changed);
 
+    buildButtonBar().ok(e -> ok()).cancel(e -> cancel()).build();
     BaseDialog.defaultShellHandling(shell, c -> ok(), c -> cancel());
 
     return transformName;

@@ -64,7 +64,6 @@ import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.TableItem;
-import org.eclipse.swt.widgets.Text;
 
 public class Neo4JOutputDialog extends BaseTransformDialog {
   private static final Class<?> PKG =
@@ -114,7 +113,7 @@ public class Neo4JOutputDialog extends BaseTransformDialog {
 
   @Override
   public String open() {
-    Shell parent = getParent();
+    createShell(BaseMessages.getString(PKG, "Neo4JOutputDialog.Shell.Title"));
 
     // Initialize nodeFromField and nodeToField if they are null (e.g., for new transforms)
     if (input.getNodeFromField() == null) {
@@ -123,10 +122,6 @@ public class Neo4JOutputDialog extends BaseTransformDialog {
     if (input.getNodeToField() == null) {
       input.setNodeToField(new NodeToField());
     }
-
-    shell = new Shell(parent, SWT.DIALOG_TRIM | SWT.RESIZE | SWT.MIN | SWT.MAX);
-    PropsUi.setLook(shell);
-    setShellImage(shell, input);
 
     ModifyListener lsMod = e -> input.setChanged();
     changed = input.hasChanged();
@@ -141,34 +136,6 @@ public class Neo4JOutputDialog extends BaseTransformDialog {
       fieldNames = new String[] {};
     }
 
-    FormLayout formLayout = new FormLayout();
-    formLayout.marginWidth = PropsUi.getFormMargin();
-    formLayout.marginHeight = PropsUi.getFormMargin();
-
-    shell.setLayout(formLayout);
-    shell.setText(BaseMessages.getString(PKG, "Neo4JOutputDialog.Shell.Title"));
-
-    int middle = props.getMiddlePct();
-    int margin = PropsUi.getMargin();
-
-    // TransformName line
-    wlTransformName = new Label(shell, SWT.RIGHT);
-    wlTransformName.setText(BaseMessages.getString(PKG, "Neo4JOutputDialog.StepName.Label"));
-    PropsUi.setLook(wlTransformName);
-    fdlTransformName = new FormData();
-    fdlTransformName.left = new FormAttachment(0, 0);
-    fdlTransformName.right = new FormAttachment(middle, 0);
-    fdlTransformName.top = new FormAttachment(0, margin);
-    wlTransformName.setLayoutData(fdlTransformName);
-    wTransformName = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    wTransformName.setText(transformName);
-    PropsUi.setLook(wTransformName);
-    wTransformName.addModifyListener(lsMod);
-    fdTransformName = new FormData();
-    fdTransformName.left = new FormAttachment(middle, margin);
-    fdTransformName.top = new FormAttachment(wlTransformName, 0, SWT.CENTER);
-    fdTransformName.right = new FormAttachment(100, 0);
-    wTransformName.setLayoutData(fdTransformName);
     Control lastControl = wTransformName;
 
     wConnection =
@@ -352,23 +319,6 @@ public class Neo4JOutputDialog extends BaseTransformDialog {
     wReturnGraphField.setLayoutData(fdReturnGraphField);
     lastControl = wReturnGraphField;
 
-    // Some buttons
-    Button wShowCypher = new Button(shell, SWT.PUSH);
-    wShowCypher.setText(BaseMessages.getString(PKG, "Neo4JOutputDialog.Button.ShowCypher"));
-    wShowCypher.addListener(SWT.Selection, e -> showCypherPreview());
-    wOk = new Button(shell, SWT.PUSH);
-    wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
-    wCancel = new Button(shell, SWT.PUSH);
-    wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
-
-    BaseTransformDialog.positionBottomButtons(
-        shell, new Button[] {wShowCypher, wOk, wCancel}, margin, null);
-
-    // Add listeners
-    //
-    wCancel.addListener(SWT.Selection, e -> cancel());
-    wOk.addListener(SWT.Selection, e -> ok());
-
     CTabFolder wTabFolder = new CTabFolder(shell, SWT.BORDER);
     PropsUi.setLook(wTabFolder, Props.WIDGET_STYLE_TAB);
 
@@ -376,7 +326,7 @@ public class Neo4JOutputDialog extends BaseTransformDialog {
     fdTabFolder.left = new FormAttachment(0, 0);
     fdTabFolder.top = new FormAttachment(lastControl, margin);
     fdTabFolder.right = new FormAttachment(100, 0);
-    fdTabFolder.bottom = new FormAttachment(wOk, -margin);
+    fdTabFolder.bottom = new FormAttachment(100, -50);
     wTabFolder.setLayoutData(fdTabFolder);
 
     /*
@@ -846,6 +796,11 @@ public class Neo4JOutputDialog extends BaseTransformDialog {
 
     getData();
 
+    buildButtonBar()
+        .ok(e -> ok())
+        .custom("Neo4JOutputDialog.Button.ShowCypher", e -> showCypherPreview())
+        .cancel(e -> cancel())
+        .build();
     BaseDialog.defaultShellHandling(shell, c -> ok(), c -> cancel());
 
     return transformName;

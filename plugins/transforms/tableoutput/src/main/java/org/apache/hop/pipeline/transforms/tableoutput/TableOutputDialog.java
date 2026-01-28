@@ -74,7 +74,6 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.TableItem;
-import org.eclipse.swt.widgets.Text;
 
 public class TableOutputDialog extends BaseTransformDialog {
   private static final Class<?> PKG = TableOutputMeta.class;
@@ -180,14 +179,9 @@ public class TableOutputDialog extends BaseTransformDialog {
   /** Open the dialog. */
   @Override
   public String open() {
-    Shell parent = getParent();
-
-    shell = new Shell(parent, SWT.DIALOG_TRIM | SWT.RESIZE | SWT.MAX | SWT.MIN);
-    PropsUi.setLook(shell);
-    setShellImage(shell, input);
+    createShell(BaseMessages.getString(PKG, "TableOutputDialog.DialogTitle"));
 
     ModifyListener lsMod = e -> input.setChanged();
-
     ModifyListener lsTableMod =
         arg0 -> {
           input.setChanged();
@@ -203,35 +197,6 @@ public class TableOutputDialog extends BaseTransformDialog {
           }
         };
     backupChanged = input.hasChanged();
-
-    int middle = props.getMiddlePct();
-    int margin = PropsUi.getMargin();
-
-    FormLayout formLayout = new FormLayout();
-    formLayout.marginWidth = PropsUi.getFormMargin();
-    formLayout.marginHeight = PropsUi.getFormMargin();
-
-    shell.setLayout(formLayout);
-    shell.setText(BaseMessages.getString(PKG, "TableOutputDialog.DialogTitle"));
-
-    // TransformName line
-    wlTransformName = new Label(shell, SWT.RIGHT);
-    wlTransformName.setText(BaseMessages.getString(PKG, "System.TransformName.Label"));
-    wlTransformName.setToolTipText(BaseMessages.getString(PKG, "System.TransformName.Tooltip"));
-    PropsUi.setLook(wlTransformName);
-    fdlTransformName = new FormData();
-    fdlTransformName.left = new FormAttachment(0, 0);
-    fdlTransformName.right = new FormAttachment(middle, -margin);
-    fdlTransformName.top = new FormAttachment(0, margin);
-    wlTransformName.setLayoutData(fdlTransformName);
-    wTransformName = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    wTransformName.setText(transformName);
-    PropsUi.setLook(wTransformName);
-    fdTransformName = new FormData();
-    fdTransformName.left = new FormAttachment(middle, 0);
-    fdTransformName.top = new FormAttachment(0, margin);
-    fdTransformName.right = new FormAttachment(100, 0);
-    wTransformName.setLayoutData(fdTransformName);
 
     // Connection line
     wConnection = addConnectionLine(shell, wTransformName, input.getConnection(), lsMod);
@@ -964,29 +929,16 @@ public class TableOutputDialog extends BaseTransformDialog {
         };
     new Thread(runnable).start();
 
-    // Some buttons
-    wOk = new Button(shell, SWT.PUSH);
-    wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
-    wCreate = new Button(shell, SWT.PUSH);
-    wCreate.setText(BaseMessages.getString(PKG, "System.Button.SQL"));
-    wCancel = new Button(shell, SWT.PUSH);
-    wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
-
-    setButtonPositions(new Button[] {wOk, wCancel, wCreate}, margin, null);
-
     FormData fdTabFolder = new FormData();
     fdTabFolder.left = new FormAttachment(0, 0);
     fdTabFolder.top =
         new FormAttachment(
             wlDdlOptions, 3 * margin); // Initially attach to label to avoid whitespace
     fdTabFolder.right = new FormAttachment(100, 0);
-    fdTabFolder.bottom = new FormAttachment(wOk, -margin);
+    fdTabFolder.bottom = new FormAttachment(100, -50);
     wTabFolder.setLayoutData(fdTabFolder);
 
     // Add listeners
-    wOk.addListener(SWT.Selection, e -> ok());
-    wCreate.addListener(SWT.Selection, e -> sql());
-    wCancel.addListener(SWT.Selection, e -> cancel());
     wGetFields.addListener(SWT.Selection, e -> get());
 
     wbTable.addSelectionListener(
@@ -1010,6 +962,7 @@ public class TableOutputDialog extends BaseTransformDialog {
     setTableFieldCombo();
     input.setChanged(backupChanged);
 
+    buildButtonBar().ok(e -> ok()).sql(e -> sql()).cancel(e -> cancel()).build();
     BaseDialog.defaultShellHandling(shell, c -> ok(), c -> cancel());
 
     return transformName;

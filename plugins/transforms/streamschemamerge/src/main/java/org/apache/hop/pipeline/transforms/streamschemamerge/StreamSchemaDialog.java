@@ -34,13 +34,10 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.ModifyListener;
 import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormData;
-import org.eclipse.swt.layout.FormLayout;
-import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableItem;
-import org.eclipse.swt.widgets.Text;
 
 public class StreamSchemaDialog extends BaseTransformDialog {
 
@@ -73,14 +70,7 @@ public class StreamSchemaDialog extends BaseTransformDialog {
    */
   @Override
   public String open() {
-
-    // store some convenient SWT variables
-    Shell parent = getParent();
-
-    // SWT code for preparing the dialog
-    shell = new Shell(parent, SWT.DIALOG_TRIM | SWT.RESIZE | SWT.MIN | SWT.MAX);
-    PropsUi.setLook(shell);
-    setShellImage(shell, meta);
+    createShell(BaseMessages.getString(PKG, "StreamSchemaTransform.Shell.Title"));
 
     // Save the value of the changed flag on the meta object. If the user cancels
     // the dialog, it will be restored to this saved value.
@@ -90,50 +80,6 @@ public class StreamSchemaDialog extends BaseTransformDialog {
     // The ModifyListener used on all controls. It will update the meta object to
     // indicate that changes are being made.
     ModifyListener lsMod = e -> meta.setChanged();
-
-    // ------------------------------------------------------- //
-    // SWT code for building the actual settings dialog        //
-    // ------------------------------------------------------- //
-    FormLayout formLayout = new FormLayout();
-    formLayout.marginWidth = PropsUi.getFormMargin();
-    formLayout.marginHeight = PropsUi.getFormMargin();
-
-    shell.setLayout(formLayout);
-    shell.setText(BaseMessages.getString(PKG, "StreamSchemaTransform.Shell.Title"));
-
-    int middle = props.getMiddlePct();
-    int margin = PropsUi.getMargin();
-
-    // TransformName line
-    Label wlTransformName = new Label(shell, SWT.RIGHT);
-    wlTransformName.setText(BaseMessages.getString(PKG, "System.TransformName.Label"));
-    wlTransformName.setToolTipText(BaseMessages.getString(PKG, "System.TransformName.Tooltip"));
-    PropsUi.setLook(wlTransformName);
-    fdlTransformName = new FormData();
-    fdlTransformName.left = new FormAttachment(0, 0);
-    fdlTransformName.right = new FormAttachment(middle, -margin);
-    fdlTransformName.top = new FormAttachment(0, margin);
-    wlTransformName.setLayoutData(fdlTransformName);
-
-    wTransformName = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    wTransformName.setText(transformName);
-    PropsUi.setLook(wTransformName);
-    wTransformName.addModifyListener(lsMod);
-    fdTransformName = new FormData();
-    fdTransformName.left = new FormAttachment(middle, 0);
-    fdTransformName.top = new FormAttachment(0, margin);
-    fdTransformName.right = new FormAttachment(100, 0);
-    wTransformName.setLayoutData(fdTransformName);
-
-    // OK, get and cancel buttons
-    wOk = new Button(shell, SWT.PUSH);
-    wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
-    wGet = new Button(shell, SWT.PUSH);
-    wGet.setText(BaseMessages.getString(PKG, "StreamSchema.getPreviousTransforms.Label"));
-    wCancel = new Button(shell, SWT.PUSH);
-    wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
-
-    setButtonPositions(new Button[] {wOk, wGet, wCancel}, margin, null);
 
     // Table with fields for inputting transform names
     Label wlTransforms = new Label(shell, SWT.NONE);
@@ -175,11 +121,6 @@ public class StreamSchemaDialog extends BaseTransformDialog {
     fdTransforms.bottom = new FormAttachment(wOk, -2 * margin);
     wTransforms.setLayoutData(fdTransforms);
 
-    // Add listeners for cancel and OK
-    wCancel.addListener(SWT.Selection, e -> cancel());
-    wOk.addListener(SWT.Selection, e -> ok());
-    wGet.addListener(SWT.Selection, e -> get());
-
     // populate the dialog with the values from the meta object
     populateDialog();
 
@@ -188,6 +129,7 @@ public class StreamSchemaDialog extends BaseTransformDialog {
     meta.setChanged(changed);
 
     // open dialog and enter event loop
+    buildButtonBar().ok(e -> ok()).get(e -> get()).cancel(e -> cancel()).build();
     BaseDialog.defaultShellHandling(shell, c -> ok(), c -> cancel());
 
     // at this point the dialog has closed, so either ok() or cancel() have been executed

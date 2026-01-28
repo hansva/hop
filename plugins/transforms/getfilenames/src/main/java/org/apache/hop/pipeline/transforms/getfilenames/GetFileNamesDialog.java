@@ -105,38 +105,6 @@ public class GetFileNamesDialog extends BaseTransformDialog {
     input = transformMeta;
   }
 
-  private void createTransformName(Shell shell, int margin, int middle, ModifyListener lsMod) {
-    // TransformName line
-    wlTransformName = new Label(shell, SWT.RIGHT);
-    wlTransformName.setText(BaseMessages.getString(PKG, "System.TransformName.Label"));
-    wlTransformName.setToolTipText(BaseMessages.getString(PKG, "System.TransformName.Tooltip"));
-    PropsUi.setLook(wlTransformName);
-    wlTransformName.setLayoutData(
-        new FormDataBuilder().left(0, margin).top(0, margin).right(middle, -2 * margin).result());
-
-    wTransformName = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    wTransformName.setText(transformName);
-    PropsUi.setLook(wTransformName);
-    wTransformName.addModifyListener(lsMod);
-    wTransformName.setLayoutData(
-        new FormDataBuilder().left(middle, -margin).top(0, margin).right(100, -margin).result());
-  }
-
-  private void createDialogButtons(Shell shell, int margin) {
-    wOk = new Button(shell, SWT.PUSH);
-    wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
-    wOk.addListener(SWT.Selection, e -> ok());
-
-    wPreview = new Button(shell, SWT.PUSH);
-    wPreview.setText(BaseMessages.getString(PKG, "GetFileNamesDialog.Preview.Button"));
-    wPreview.addListener(SWT.Selection, e -> preview());
-
-    wCancel = new Button(shell, SWT.PUSH);
-    wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
-    wCancel.addListener(SWT.Selection, e -> cancel());
-    setButtonPositions(new Button[] {wOk, wPreview, wCancel}, margin, null);
-  }
-
   private Group createGroupOpMode(Composite parent, int margin, int middle) {
     Group group = new Group(parent, SWT.SHADOW_NONE);
     PropsUi.setLook(group);
@@ -837,22 +805,14 @@ public class GetFileNamesDialog extends BaseTransformDialog {
 
   @Override
   public String open() {
-    Shell parentShell = getParent();
+    createShell(BaseMessages.getString(PKG, "GetFileNamesDialog.DialogTitle"));
 
-    shell = new Shell(parentShell, SWT.DIALOG_TRIM | SWT.RESIZE | SWT.MAX | SWT.MIN);
-    shell.setText(BaseMessages.getString(PKG, "GetFileNamesDialog.DialogTitle"));
-    PropsUi.setLook(shell);
-    setShellImage(shell, input);
     WidgetUtils.setFormLayout(shell, PropsUi.getFormMargin());
 
     ModifyListener lsMod = e -> input.setChanged();
     changed = input.hasChanged();
 
-    int middle = props.getMiddlePct();
-    int margin = PropsUi.getMargin();
-
-    createTransformName(shell, margin, middle, lsMod);
-    createDialogButtons(shell, margin);
+    Control lastControl = wTransformName;
 
     CTabFolder tabFolder = new CTabFolder(shell, SWT.BORDER);
     PropsUi.setLook(tabFolder, Props.WIDGET_STYLE_TAB);
@@ -860,7 +820,7 @@ public class GetFileNamesDialog extends BaseTransformDialog {
     tabFolder.setLayoutData(
         new FormDataBuilder()
             .left(0, 0)
-            .top(wTransformName, margin)
+            .top(lastControl, margin)
             .right(100, 0)
             .bottom(wOk, -2 * margin)
             .result());
@@ -875,6 +835,7 @@ public class GetFileNamesDialog extends BaseTransformDialog {
     setErrorsMgmtCheckboxesStatus();
     input.setChanged(changed);
 
+    buildButtonBar().ok(e -> ok()).preview(e -> preview()).cancel(e -> cancel()).build();
     BaseDialog.defaultShellHandling(shell, c -> ok(), c -> cancel());
 
     return transformName;

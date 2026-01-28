@@ -168,11 +168,7 @@ public class DimensionLookupDialog extends BaseTransformDialog {
 
   @Override
   public String open() {
-    Shell parent = getParent();
-
-    shell = new Shell(parent, SWT.DIALOG_TRIM | SWT.RESIZE | SWT.MAX | SWT.MIN);
-    PropsUi.setLook(shell);
-    setShellImage(shell, input);
+    createShell(BaseMessages.getString(PKG, "DimensionLookupDialog.Shell.Title"));
 
     ModifyListener lsMod = e -> input.setChanged();
     ModifyListener lsTableMod =
@@ -181,35 +177,10 @@ public class DimensionLookupDialog extends BaseTransformDialog {
           setTableFieldCombo();
         };
 
-    shell.setLayout(props.createFormLayout());
-    shell.setText(BaseMessages.getString(PKG, "DimensionLookupDialog.Shell.Title"));
-
-    int middle = props.getMiddlePct();
-    int margin = PropsUi.getMargin();
-
     Composite mainComposite = shell;
     PropsUi.setLook(mainComposite);
 
     mainComposite.setLayout(props.createFormLayout());
-
-    // TransformName line
-    wlTransformName = new Label(mainComposite, SWT.RIGHT);
-    wlTransformName.setText(
-        BaseMessages.getString(PKG, "DimensionLookupDialog.TransformName.Label"));
-    PropsUi.setLook(wlTransformName);
-    fdlTransformName = new FormData();
-    fdlTransformName.left = new FormAttachment(0, 0);
-    fdlTransformName.right = new FormAttachment(middle, -margin);
-    fdlTransformName.top = new FormAttachment(0, margin);
-    wlTransformName.setLayoutData(fdlTransformName);
-    wTransformName = new Text(mainComposite, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    wTransformName.setText(transformName);
-    PropsUi.setLook(wTransformName);
-    fdTransformName = new FormData();
-    fdTransformName.left = new FormAttachment(middle, 0);
-    fdTransformName.top = new FormAttachment(0, margin);
-    fdTransformName.right = new FormAttachment(100, 0);
-    wTransformName.setLayoutData(fdTransformName);
 
     // Update the dimension?
     Label wlUpdate = new Label(mainComposite, SWT.RIGHT);
@@ -375,21 +346,6 @@ public class DimensionLookupDialog extends BaseTransformDialog {
     fdCacheSize.right = new FormAttachment(100, 0);
     wCacheSize.setLayoutData(fdCacheSize);
 
-    // THE BOTTOM BUTTONS
-    wOk = new Button(mainComposite, SWT.PUSH);
-    wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
-    wOk.addListener(SWT.Selection, e -> ok());
-    Button wGet = new Button(mainComposite, SWT.PUSH);
-    wGet.setText(BaseMessages.getString(PKG, "DimensionLookupDialog.GetFields.Button"));
-    wGet.addListener(SWT.Selection, e -> get());
-    wCreate = new Button(mainComposite, SWT.PUSH);
-    wCreate.setText(BaseMessages.getString(PKG, "DimensionLookupDialog.SQL.Button"));
-    wCreate.addListener(SWT.Selection, e -> create());
-    wCancel = new Button(mainComposite, SWT.PUSH);
-    wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
-    wCancel.addListener(SWT.Selection, e -> cancel());
-    setButtonPositions(new Button[] {wOk, wGet, wCreate, wCancel}, margin, null);
-
     wTabFolder = new CTabFolder(mainComposite, SWT.BORDER);
     PropsUi.setLook(wTabFolder, Props.WIDGET_STYLE_TAB);
 
@@ -423,6 +379,12 @@ public class DimensionLookupDialog extends BaseTransformDialog {
     getData();
     setTableFieldCombo();
 
+    buildButtonBar()
+        .ok(e -> ok())
+        .get(e -> get())
+        .create(e -> create())
+        .cancel(e -> cancel())
+        .build();
     BaseDialog.defaultShellHandling(shell, c -> ok(), c -> cancel());
 
     return transformName;

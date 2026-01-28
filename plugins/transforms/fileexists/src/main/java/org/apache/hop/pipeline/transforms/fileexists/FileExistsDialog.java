@@ -41,10 +41,10 @@ import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormData;
 import org.eclipse.swt.layout.FormLayout;
 import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Group;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
-import org.eclipse.swt.widgets.Text;
 
 public class FileExistsDialog extends BaseTransformDialog {
   private static final Class<?> PKG = FileExistsMeta.class;
@@ -70,53 +70,12 @@ public class FileExistsDialog extends BaseTransformDialog {
 
   @Override
   public String open() {
-    Shell parent = getParent();
-
-    shell = new Shell(parent, SWT.DIALOG_TRIM | SWT.RESIZE | SWT.MAX | SWT.MIN);
-    PropsUi.setLook(shell);
-    setShellImage(shell, input);
+    createShell(BaseMessages.getString(PKG, "FileExistsDialog.Shell.Title"));
 
     ModifyListener lsMod = e -> input.setChanged();
-
     changed = input.hasChanged();
 
-    FormLayout formLayout = new FormLayout();
-    formLayout.marginWidth = PropsUi.getFormMargin();
-    formLayout.marginHeight = PropsUi.getFormMargin();
-
-    shell.setLayout(formLayout);
-    shell.setText(BaseMessages.getString(PKG, "FileExistsDialog.Shell.Title"));
-
-    int middle = props.getMiddlePct();
-    int margin = PropsUi.getMargin();
-
-    // THE BUTTONS
-    wOk = new Button(shell, SWT.PUSH);
-    wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
-    wOk.addListener(SWT.Selection, e -> ok());
-    wCancel = new Button(shell, SWT.PUSH);
-    wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
-    wCancel.addListener(SWT.Selection, e -> cancel());
-    setButtonPositions(new Button[] {wOk, wCancel}, margin, null);
-
-    // TransformName line
-    wlTransformName = new Label(shell, SWT.RIGHT);
-    wlTransformName.setText(BaseMessages.getString(PKG, "FileExistsDialog.TransformName.Label"));
-    PropsUi.setLook(wlTransformName);
-    fdlTransformName = new FormData();
-    fdlTransformName.left = new FormAttachment(0, 0);
-    fdlTransformName.right = new FormAttachment(middle, -margin);
-    fdlTransformName.top = new FormAttachment(0, margin);
-    wlTransformName.setLayoutData(fdlTransformName);
-    wTransformName = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    wTransformName.setText(transformName);
-    PropsUi.setLook(wTransformName);
-    wTransformName.addModifyListener(lsMod);
-    fdTransformName = new FormData();
-    fdTransformName.left = new FormAttachment(middle, 0);
-    fdTransformName.top = new FormAttachment(0, margin);
-    fdTransformName.right = new FormAttachment(100, 0);
-    wTransformName.setLayoutData(fdTransformName);
+    Control lastControl = wTransformName;
 
     // filename field
     Label wlFileName = new Label(shell, SWT.RIGHT);
@@ -125,7 +84,7 @@ public class FileExistsDialog extends BaseTransformDialog {
     FormData fdlFileName = new FormData();
     fdlFileName.left = new FormAttachment(0, 0);
     fdlFileName.right = new FormAttachment(middle, -margin);
-    fdlFileName.top = new FormAttachment(wTransformName, margin);
+    fdlFileName.top = new FormAttachment(lastControl, margin);
     wlFileName.setLayoutData(fdlFileName);
 
     wFileName = new CCombo(shell, SWT.BORDER | SWT.READ_ONLY);
@@ -133,7 +92,7 @@ public class FileExistsDialog extends BaseTransformDialog {
     wFileName.addModifyListener(lsMod);
     FormData fdFileName = new FormData();
     fdFileName.left = new FormAttachment(middle, 0);
-    fdFileName.top = new FormAttachment(wTransformName, margin);
+    fdFileName.top = new FormAttachment(lastControl, margin);
     fdFileName.right = new FormAttachment(100, -margin);
     wFileName.setLayoutData(fdFileName);
     wFileName.addFocusListener(
@@ -267,6 +226,7 @@ public class FileExistsDialog extends BaseTransformDialog {
     activeFileType();
     input.setChanged(changed);
 
+    buildButtonBar().ok(e -> ok()).cancel(e -> cancel()).build();
     BaseDialog.defaultShellHandling(shell, c -> ok(), c -> cancel());
 
     return transformName;

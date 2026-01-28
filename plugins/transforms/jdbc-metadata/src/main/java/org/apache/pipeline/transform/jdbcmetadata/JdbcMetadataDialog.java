@@ -54,7 +54,6 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableItem;
-import org.eclipse.swt.widgets.Text;
 
 public class JdbcMetadataDialog extends BaseTransformDialog {
   private static final Class<?> PKG = JdbcMetadataMeta.class; // for i18n purposes
@@ -281,16 +280,10 @@ public class JdbcMetadataDialog extends BaseTransformDialog {
   }
 
   public String open() {
+    createShell(BaseMessages.getString(PKG, "JdbcMetadata.Name"));
     dialogChanged = false;
-    Shell parent = getParent();
-
-    // SWT code for preparing the dialog
-    shell = new Shell(parent, SWT.DIALOG_TRIM | SWT.RESIZE | SWT.MIN | SWT.MAX);
-    PropsUi.setLook(shell);
-    setShellImage(shell, input);
 
     changed = input.hasChanged();
-
     lsMod = e -> input.setChanged();
     SelectionListener lsSelection =
         new SelectionAdapter() {
@@ -302,36 +295,7 @@ public class JdbcMetadataDialog extends BaseTransformDialog {
     // ------------------------------------------------------- //
     // SWT code for building the actual settings dialog        //
     // ------------------------------------------------------- //
-    Control lastControl;
-
-    FormLayout formLayout = new FormLayout();
-    formLayout.marginWidth = PropsUi.getFormMargin();
-    formLayout.marginHeight = PropsUi.getFormMargin();
-
-    shell.setLayout(formLayout);
-    shell.setText(BaseMessages.getString(PKG, "JdbcMetadata.Name"));
-
-    wlTransformName = new Label(shell, SWT.RIGHT);
-    wlTransformName.setText(BaseMessages.getString(PKG, "System.TransformName.Label"));
-    wlTransformName.setToolTipText(BaseMessages.getString(PKG, "System.TransformName.Tooltip"));
-    PropsUi.setLook(wlTransformName);
-    fdlTransformName = new FormData();
-    fdlTransformName.left = new FormAttachment(0, 0);
-    fdlTransformName.right = new FormAttachment(middle, -margin);
-    fdlTransformName.top = new FormAttachment(0, margin);
-    wlTransformName.setLayoutData(fdlTransformName);
-
-    wTransformName = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    wTransformName.setText(transformName);
-    PropsUi.setLook(wTransformName);
-    wTransformName.addModifyListener(lsMod);
-    fdTransformName = new FormData();
-    fdTransformName.left = new FormAttachment(middle, 0);
-    fdTransformName.top = new FormAttachment(0, margin);
-    fdTransformName.right = new FormAttachment(100, 0);
-    wTransformName.setLayoutData(fdTransformName);
-
-    lastControl = wTransformName;
+    Control lastControl = wTransformName;
 
     wConnection = addConnectionLine(shell, lastControl, input.getConnection(), lsMod);
     wConnection.addSelectionListener(lsSelection);
@@ -585,30 +549,20 @@ public class JdbcMetadataDialog extends BaseTransformDialog {
     fieldsComposite.layout();
     fieldsTab.setControl(fieldsComposite);
 
-    // OK and cancel buttons
-    wOk = new Button(shell, SWT.PUSH);
-    wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
-    wCancel = new Button(shell, SWT.PUSH);
-    wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
-
-    setButtonPositions(new Button[] {wOk, wCancel}, margin, null);
-
     // Tabfolder
     FormData cTabFolderFormData = new FormData();
     cTabFolderFormData.left = new FormAttachment(0, 0);
     cTabFolderFormData.top = new FormAttachment(alwaysPassInputRowButton, margin);
     cTabFolderFormData.right = new FormAttachment(100, 0);
-    cTabFolderFormData.bottom = new FormAttachment(wOk, -margin);
+    cTabFolderFormData.bottom = new FormAttachment(100, 0);
     cTabFolder.setLayoutData(cTabFolderFormData);
     cTabFolder.setSelection(0);
-
-    wOk.addListener(SWT.Selection, e -> ok());
-    wCancel.addListener(SWT.Selection, e -> cancel());
 
     setSize();
     populateDialog();
     input.setChanged(changed);
 
+    buildButtonBar().ok(e -> ok()).cancel(e -> cancel()).build();
     BaseDialog.defaultShellHandling(shell, c -> ok(), c -> cancel());
 
     return transformName;

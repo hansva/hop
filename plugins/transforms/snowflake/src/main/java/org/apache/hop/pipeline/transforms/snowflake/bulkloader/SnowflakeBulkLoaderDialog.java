@@ -78,7 +78,6 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Link;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.TableItem;
-import org.eclipse.swt.widgets.Text;
 
 public class SnowflakeBulkLoaderDialog extends BaseTransformDialog {
 
@@ -258,14 +257,9 @@ public class SnowflakeBulkLoaderDialog extends BaseTransformDialog {
    * @return The transform name
    */
   public String open() {
+    createShell(BaseMessages.getString(PKG, "SnowflakeBulkLoader.Dialog.Title"));
     Shell parent = getParent();
     display = parent.getDisplay();
-
-    int margin = PropsUi.getMargin();
-
-    shell = new Shell(parent, SWT.DIALOG_TRIM | SWT.RESIZE | SWT.MAX | SWT.MIN);
-    PropsUi.setLook(shell);
-    setShellImage(shell, input);
 
     /* ************************************************
      * Modify Listeners
@@ -294,35 +288,6 @@ public class SnowflakeBulkLoaderDialog extends BaseTransformDialog {
         };
 
     changed = input.hasChanged();
-
-    FormLayout formLayout = new FormLayout();
-    formLayout.marginWidth = PropsUi.getFormMargin();
-    formLayout.marginHeight = PropsUi.getFormMargin();
-
-    shell.setLayout(formLayout);
-    shell.setText(BaseMessages.getString(PKG, "SnowflakeBulkLoader.Dialog.Title"));
-
-    int middle = props.getMiddlePct();
-
-    // Transform name line
-    wlTransformName = new Label(shell, SWT.RIGHT);
-    wlTransformName.setText(BaseMessages.getString(PKG, "System.TransformName.Label"));
-    wlTransformName.setToolTipText(BaseMessages.getString(PKG, "System.TransformName.Tooltip"));
-    PropsUi.setLook(wlTransformName);
-    fdlTransformName = new FormData();
-    fdlTransformName.left = new FormAttachment(0, 0);
-    fdlTransformName.top = new FormAttachment(0, margin);
-    fdlTransformName.right = new FormAttachment(middle, -margin);
-    wlTransformName.setLayoutData(fdlTransformName);
-    wTransformName = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    wTransformName.setText(transformName);
-    PropsUi.setLook(wTransformName);
-    wTransformName.addModifyListener(lsMod);
-    fdTransformName = new FormData();
-    fdTransformName.left = new FormAttachment(middle, 0);
-    fdTransformName.top = new FormAttachment(0, margin);
-    fdTransformName.right = new FormAttachment(100, 0);
-    wTransformName.setLayoutData(fdTransformName);
 
     CTabFolder wTabFolder = new CTabFolder(shell, SWT.BORDER);
     PropsUi.setLook(wTabFolder, Props.WIDGET_STYLE_TAB);
@@ -1088,20 +1053,11 @@ public class SnowflakeBulkLoaderDialog extends BaseTransformDialog {
     wFieldsComp.layout();
     wFieldsTab.setControl(wFieldsComp);
 
-    wOk = new Button(shell, SWT.PUSH);
-    wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
-    wSql = new Button(shell, SWT.PUSH);
-    wSql.setText(BaseMessages.getString(PKG, "SnowflakeBulkLoader.SQL.Button"));
-    wCancel = new Button(shell, SWT.PUSH);
-    wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
-
-    setButtonPositions(new Button[] {wOk, wSql, wCancel}, margin, null);
-
     FormData fdTabFolder = new FormData();
     fdTabFolder.left = new FormAttachment(0, 0);
     fdTabFolder.top = new FormAttachment(wTransformName, margin);
     fdTabFolder.right = new FormAttachment(100, 0);
-    fdTabFolder.bottom = new FormAttachment(wCancel, -2 * margin);
+    fdTabFolder.bottom = new FormAttachment(100, -50);
     wTabFolder.setLayoutData(fdTabFolder);
 
     wbTable.addListener(SWT.Selection, e -> getTableName());
@@ -1118,9 +1074,6 @@ public class SnowflakeBulkLoaderDialog extends BaseTransformDialog {
             cancel();
           }
         });
-    wSql.addListener(SWT.Selection, e -> create());
-    wOk.addListener(SWT.Selection, e -> ok());
-    wCancel.addListener(SWT.Selection, e -> cancel());
     wGet.addListener(SWT.Selection, e -> get());
     wDoMapping.addListener(SWT.Selection, e -> generateMappings());
 
@@ -1151,6 +1104,8 @@ public class SnowflakeBulkLoaderDialog extends BaseTransformDialog {
         display.sleep();
       }
     }
+    buildButtonBar().ok(e -> ok()).sql(e -> create()).cancel(e -> cancel()).build();
+
     return transformName;
   }
 

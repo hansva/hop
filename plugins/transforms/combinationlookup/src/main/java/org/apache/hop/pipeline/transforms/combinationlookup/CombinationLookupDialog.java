@@ -54,7 +54,6 @@ import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.events.SelectionListener;
 import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormData;
-import org.eclipse.swt.layout.FormLayout;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Button;
@@ -124,21 +123,7 @@ public class CombinationLookupDialog extends BaseTransformDialog {
 
   @Override
   public String open() {
-    Shell parent = getParent();
-
-    shell = new Shell(parent, SWT.DIALOG_TRIM | SWT.RESIZE | SWT.MAX | SWT.MIN);
-    PropsUi.setLook(shell);
-    setShellImage(shell, input);
-
-    FormLayout formLayout = new FormLayout();
-    formLayout.marginWidth = PropsUi.getFormMargin();
-    formLayout.marginHeight = PropsUi.getFormMargin();
-
-    shell.setLayout(formLayout);
-    shell.setText(BaseMessages.getString(PKG, "CombinationLookupDialog.Shell.Title"));
-
-    int middle = props.getMiddlePct();
-    int margin = PropsUi.getMargin();
+    createShell(BaseMessages.getString(PKG, "CombinationLookupDialog.Shell.Title"));
 
     ModifyListener lsMod = e -> input.setChanged();
     ModifyListener lsTableMod =
@@ -156,27 +141,6 @@ public class CombinationLookupDialog extends BaseTransformDialog {
         };
     backupChanged = input.hasChanged();
     databaseMeta = input.getDatabaseMeta();
-
-    // TransformName line
-    wlTransformName = new Label(shell, SWT.RIGHT);
-    wlTransformName.setText(
-        BaseMessages.getString(PKG, "CombinationLookupDialog.TransformName.Label"));
-    PropsUi.setLook(wlTransformName);
-
-    fdlTransformName = new FormData();
-    fdlTransformName.left = new FormAttachment(0, 0);
-    fdlTransformName.right = new FormAttachment(middle, -margin);
-    fdlTransformName.top = new FormAttachment(0, margin);
-    wlTransformName.setLayoutData(fdlTransformName);
-    wTransformName = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    wTransformName.setText(transformName);
-    PropsUi.setLook(wTransformName);
-    wTransformName.addModifyListener(lsMod);
-    fdTransformName = new FormData();
-    fdTransformName.left = new FormAttachment(middle, 0);
-    fdTransformName.top = new FormAttachment(0, margin);
-    fdTransformName.right = new FormAttachment(100, 0);
-    wTransformName.setLayoutData(fdTransformName);
 
     // Connection line
     wConnection = addConnectionLine(shell, wTransformName, input.getDatabaseMeta(), lsMod);
@@ -331,17 +295,6 @@ public class CombinationLookupDialog extends BaseTransformDialog {
             nrKeyRows,
             lsMod,
             props);
-
-    // THE BUTTONS
-    wOk = new Button(shell, SWT.PUSH);
-    wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
-    Button wGet = new Button(shell, SWT.PUSH);
-    wGet.setText(BaseMessages.getString(PKG, "CombinationLookupDialog.GetFields.Button"));
-    Button wCreate = new Button(shell, SWT.PUSH);
-    wCreate.setText(BaseMessages.getString(PKG, "CombinationLookupDialog.SQL.Button"));
-    wCancel = new Button(shell, SWT.PUSH);
-    wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
-    setButtonPositions(new Button[] {wOk, wGet, wCreate, wCancel}, margin, null);
 
     // Last update field:
     Label wlLastUpdateField = new Label(shell, SWT.RIGHT);
@@ -565,12 +518,6 @@ public class CombinationLookupDialog extends BaseTransformDialog {
         };
     new Thread(runnable).start();
 
-    // Add listeners
-    wOk.addListener(SWT.Selection, e -> ok());
-    wGet.addListener(SWT.Selection, e -> get());
-    wCreate.addListener(SWT.Selection, e -> create());
-    wCancel.addListener(SWT.Selection, e -> cancel());
-
     wbSchema.addSelectionListener(
         new SelectionAdapter() {
           @Override
@@ -589,6 +536,7 @@ public class CombinationLookupDialog extends BaseTransformDialog {
     getData();
     setTableFieldCombo();
 
+    buildButtonBar().ok(e -> ok()).get(e -> get()).sql(e -> create()).cancel(e -> cancel()).build();
     BaseDialog.defaultShellHandling(shell, c -> ok(), c -> cancel());
 
     return transformName;

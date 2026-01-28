@@ -60,8 +60,8 @@ import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormData;
-import org.eclipse.swt.layout.FormLayout;
 import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.TableItem;
@@ -105,11 +105,7 @@ public class MySqlBulkLoaderDialog extends BaseTransformDialog {
 
   @Override
   public String open() {
-    Shell parent = getParent();
-
-    shell = new Shell(parent, SWT.DIALOG_TRIM | SWT.RESIZE | SWT.MAX | SWT.MIN);
-    PropsUi.setLook(shell);
-    setShellImage(shell, input);
+    createShell(BaseMessages.getString(PKG, "MySqlBulkLoaderDialog.Shell.Title"));
 
     ModifyListener lsMod = e -> input.setChanged();
     FocusListener lsFocusLost =
@@ -121,37 +117,10 @@ public class MySqlBulkLoaderDialog extends BaseTransformDialog {
         };
     changed = input.hasChanged();
 
-    FormLayout formLayout = new FormLayout();
-    formLayout.marginWidth = PropsUi.getFormMargin();
-    formLayout.marginHeight = PropsUi.getFormMargin();
-
-    shell.setLayout(formLayout);
-    shell.setText(BaseMessages.getString(PKG, "MySqlBulkLoaderDialog.Shell.Title"));
-
-    int middle = props.getMiddlePct();
-    int margin = PropsUi.getMargin();
-
-    wlTransformName = new Label(shell, SWT.RIGHT);
-    wlTransformName.setText(
-        BaseMessages.getString(PKG, "MySqlBulkLoaderDialog.TransformName.Label"));
-    PropsUi.setLook(wlTransformName);
-    FormData fdlTransformName = new FormData();
-    fdlTransformName.left = new FormAttachment(0, 0);
-    fdlTransformName.right = new FormAttachment(middle, -margin);
-    fdlTransformName.top = new FormAttachment(0, margin);
-    wlTransformName.setLayoutData(fdlTransformName);
-    wTransformName = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    wTransformName.setText(transformName);
-    PropsUi.setLook(wTransformName);
-    wTransformName.addModifyListener(lsMod);
-    FormData fdTransformName = new FormData();
-    fdTransformName.left = new FormAttachment(middle, 0);
-    fdTransformName.top = new FormAttachment(0, margin);
-    fdTransformName.right = new FormAttachment(100, 0);
-    wTransformName.setLayoutData(fdTransformName);
+    Control lastControl = wTransformName;
 
     // Connection line
-    wConnection = addConnectionLine(shell, wTransformName, input.getConnection(), lsMod);
+    wConnection = addConnectionLine(shell, lastControl, input.getConnection(), lsMod);
     if (input.getConnection() == null) {
       wConnection.select(0);
     }
@@ -431,16 +400,6 @@ public class MySqlBulkLoaderDialog extends BaseTransformDialog {
           }
         });
 
-    // THE BUTTONS
-    wOk = new Button(shell, SWT.PUSH);
-    wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
-    wSql = new Button(shell, SWT.PUSH);
-    wSql.setText(BaseMessages.getString(PKG, "MySqlBulkLoaderDialog.SQL.Button"));
-    wCancel = new Button(shell, SWT.PUSH);
-    wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
-
-    setButtonPositions(new Button[] {wOk, wCancel, wSql}, margin, null);
-
     // The field Table
     Label wlReturn = new Label(shell, SWT.NONE);
     wlReturn.setText(BaseMessages.getString(PKG, "MySqlBulkLoaderDialog.Fields.Label"));
@@ -504,7 +463,7 @@ public class MySqlBulkLoaderDialog extends BaseTransformDialog {
     fdReturn.left = new FormAttachment(0, 0);
     fdReturn.top = new FormAttachment(wlReturn, margin);
     fdReturn.right = new FormAttachment(wDoMapping, -margin);
-    fdReturn.bottom = new FormAttachment(wOk, -2 * margin);
+    fdReturn.bottom = new FormAttachment(100, 0);
     wReturn.setLayoutData(fdReturn);
 
     //
@@ -531,10 +490,7 @@ public class MySqlBulkLoaderDialog extends BaseTransformDialog {
         };
     new Thread(runnable).start();
 
-    wOk.addListener(SWT.Selection, e -> ok());
     wGetLU.addListener(SWT.Selection, e -> getUpdate());
-    wSql.addListener(SWT.Selection, e -> create());
-    wCancel.addListener(SWT.Selection, e -> cancel());
 
     wbTable.addSelectionListener(
         new SelectionAdapter() {
@@ -551,6 +507,11 @@ public class MySqlBulkLoaderDialog extends BaseTransformDialog {
     setTableFieldCombo();
     input.setChanged(changed);
 
+    buildButtonBar()
+        .ok(e -> ok())
+        .custom(BaseMessages.getString(PKG, "MySqlBulkLoaderDialog.SQL.Button"), e -> create())
+        .cancel(e -> cancel())
+        .build();
     BaseDialog.defaultShellHandling(shell, c -> ok(), c -> cancel());
 
     return transformName;

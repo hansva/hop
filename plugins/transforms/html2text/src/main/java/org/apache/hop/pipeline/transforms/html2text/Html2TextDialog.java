@@ -17,27 +17,21 @@
 
 package org.apache.hop.pipeline.transforms.html2text;
 
-import static org.apache.hop.core.Const.FORM_MARGIN;
 import static org.apache.hop.core.util.Utils.isEmpty;
 import static org.apache.hop.i18n.BaseMessages.getString;
 import static org.apache.hop.pipeline.transforms.html2text.Html2TextMeta.SafelistType.getTypeFromDescription;
 import static org.eclipse.swt.SWT.BORDER;
 import static org.eclipse.swt.SWT.CHECK;
 import static org.eclipse.swt.SWT.CURSOR_WAIT;
-import static org.eclipse.swt.SWT.DIALOG_TRIM;
 import static org.eclipse.swt.SWT.LEFT;
-import static org.eclipse.swt.SWT.MAX;
-import static org.eclipse.swt.SWT.MIN;
-import static org.eclipse.swt.SWT.PUSH;
 import static org.eclipse.swt.SWT.READ_ONLY;
-import static org.eclipse.swt.SWT.RESIZE;
 import static org.eclipse.swt.SWT.RIGHT;
 import static org.eclipse.swt.SWT.SINGLE;
-import static org.eclipse.swt.SWT.Selection;
 
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.row.IRowMeta;
 import org.apache.hop.core.variables.IVariables;
+import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.pipeline.PipelineMeta;
 import org.apache.hop.pipeline.transform.BaseTransformMeta;
 import org.apache.hop.pipeline.transform.ITransformDialog;
@@ -56,11 +50,9 @@ import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.graphics.Cursor;
 import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormData;
-import org.eclipse.swt.layout.FormLayout;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
-import org.eclipse.swt.widgets.Text;
 
 public class Html2TextDialog extends BaseTransformDialog implements ITransformDialog {
   private static final Class<?> PKG = Html2TextDialog.class; // For Translator
@@ -83,47 +75,13 @@ public class Html2TextDialog extends BaseTransformDialog implements ITransformDi
 
   @Override
   public String open() {
-    Shell parent = getParent();
-
-    shell = new Shell(parent, DIALOG_TRIM | RESIZE | MAX | MIN);
-    PropsUi.setLook(shell);
-    setShellImage(shell, input);
+    createShell(BaseMessages.getString(PKG, "Html2TextDialog.Shell.Title"));
 
     ModifyListener lsMod = e -> input.setChanged();
-
     changed = input.hasChanged();
-
-    FormLayout formLayout = new FormLayout();
-    formLayout.marginWidth = FORM_MARGIN;
-    formLayout.marginHeight = FORM_MARGIN;
-
-    shell.setLayout(formLayout);
-    shell.setText(getString(PKG, "Html2TextDialog.Shell.Title"));
-
-    int middle = props.getMiddlePct();
-    int margin = PropsUi.getMargin();
 
     wCleanOnly = new Button(shell, CHECK);
     wCleanOnly.setSelection(input.isCleanOnly());
-
-    // TransformName line
-    wlTransformName = new Label(shell, RIGHT);
-    wlTransformName.setText(getString(PKG, "Html2TextDialog.TransformName.Label"));
-    PropsUi.setLook(wlTransformName);
-    fdlTransformName = new FormData();
-    fdlTransformName.left = new FormAttachment(0, 0);
-    fdlTransformName.right = new FormAttachment(middle, -margin);
-    fdlTransformName.top = new FormAttachment(0, margin);
-    wlTransformName.setLayoutData(fdlTransformName);
-    wTransformName = new Text(shell, SINGLE | LEFT | BORDER);
-    wTransformName.setText(transformName);
-    PropsUi.setLook(wTransformName);
-    wTransformName.addModifyListener(lsMod);
-    fdTransformName = new FormData();
-    fdTransformName.left = new FormAttachment(middle, 0);
-    fdTransformName.top = new FormAttachment(0, margin);
-    fdTransformName.right = new FormAttachment(100, 0);
-    wTransformName.setLayoutData(fdTransformName);
 
     // HtmlFieldName field
     Label wlHtmlFieldName = new Label(shell, RIGHT);
@@ -132,14 +90,14 @@ public class Html2TextDialog extends BaseTransformDialog implements ITransformDi
     FormData fdlHtmlFieldName = new FormData();
     fdlHtmlFieldName.left = new FormAttachment(0, 0);
     fdlHtmlFieldName.right = new FormAttachment(middle, -margin);
-    fdlHtmlFieldName.top = new FormAttachment(wTransformName, margin);
+    fdlHtmlFieldName.top = new FormAttachment(0, margin);
     wlHtmlFieldName.setLayoutData(fdlHtmlFieldName);
     wHtmlFieldName = new CCombo(shell, BORDER | READ_ONLY);
     PropsUi.setLook(wHtmlFieldName);
     wHtmlFieldName.addModifyListener(lsMod);
     FormData fdHtmlFieldName = new FormData();
     fdHtmlFieldName.left = new FormAttachment(middle, 0);
-    fdHtmlFieldName.top = new FormAttachment(wTransformName, margin);
+    fdHtmlFieldName.top = new FormAttachment(0, margin);
     fdHtmlFieldName.right = new FormAttachment(100, -margin);
     wHtmlFieldName.setLayoutData(fdHtmlFieldName);
     wHtmlFieldName.addFocusListener(
@@ -293,21 +251,10 @@ public class Html2TextDialog extends BaseTransformDialog implements ITransformDi
           }
         });
 
-    // THE BUTTONS
-    wOk = new Button(shell, PUSH);
-    wOk.setText(getString(PKG, "System.Button.OK"));
-    wCancel = new Button(shell, PUSH);
-    wCancel.setText(getString(PKG, "System.Button.Cancel"));
-
-    setButtonPositions(new Button[] {wOk, wCancel}, margin, wParallelism);
-
-    // Add listeners
-    wOk.addListener(Selection, e -> ok());
-    wCancel.addListener(Selection, e -> cancel());
-
     getData();
     input.setChanged(changed);
 
+    buildButtonBar().ok(e -> ok()).cancel(e -> cancel()).build();
     BaseDialog.defaultShellHandling(shell, c -> ok(), c -> cancel());
 
     return transformName;

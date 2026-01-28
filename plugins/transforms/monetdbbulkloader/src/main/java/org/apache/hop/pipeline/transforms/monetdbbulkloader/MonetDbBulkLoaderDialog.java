@@ -144,11 +144,7 @@ public class MonetDbBulkLoaderDialog extends BaseTransformDialog {
 
   @Override
   public String open() {
-    Shell parent = getParent();
-
-    shell = new Shell(parent, SWT.DIALOG_TRIM | SWT.RESIZE | SWT.MAX | SWT.MIN);
-    PropsUi.setLook(shell);
-    setShellImage(shell, input);
+    createShell(BaseMessages.getString(PKG, "MonetDBBulkLoaderDialog.Shell.Title"));
 
     ModifyListener lsMod = e -> input.setChanged();
     FocusListener lsFocusLost =
@@ -160,45 +156,8 @@ public class MonetDbBulkLoaderDialog extends BaseTransformDialog {
         };
     changed = input.hasChanged();
 
-    FormLayout formLayout = new FormLayout();
-    formLayout.marginWidth = PropsUi.getFormMargin();
-    formLayout.marginHeight = PropsUi.getFormMargin();
-
-    shell.setLayout(formLayout);
-    shell.setText(BaseMessages.getString(PKG, "MonetDBBulkLoaderDialog.Shell.Title"));
-
-    // The right side of all the labels is available as a user-defined percentage:
-    // props.getMiddlePct()
-    int middle = props.getMiddlePct();
-    int margin = PropsUi.getMargin(); // Default 4 pixel margin around components.
-
-    //
-    // OK (Button), Cancel (Button) and SQL (Button)
-    // - these appear at the bottom of the dialog window.
-    wOk = new Button(shell, SWT.PUSH);
-    wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
-    wSql = new Button(shell, SWT.PUSH);
-    wSql.setText(BaseMessages.getString(PKG, "MonetDBBulkLoaderDialog.SQL.Button"));
-    wCancel = new Button(shell, SWT.PUSH);
-    wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
-    setButtonPositions(new Button[] {wOk, wSql, wCancel}, margin, null);
-
     //
     // Dialog Box Contents (Organized from dialog top to bottom, dialog left to right.)
-    // Label - Transform name
-
-    wlTransformName = new Label(shell, SWT.RIGHT);
-    wlTransformName.setText(
-        BaseMessages.getString(PKG, "MonetDBBulkLoaderDialog.Transformname.Label"));
-    PropsUi.setLook(
-        wlTransformName); // Puts the user-selected background color and font on the widget.
-
-    // Text box for editing the transform name
-    wTransformName = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    wTransformName.setText(transformName);
-    PropsUi.setLook(wTransformName);
-    wTransformName.addModifyListener(lsMod);
-
     //
     // Connection line
     //
@@ -506,23 +465,6 @@ public class MonetDbBulkLoaderDialog extends BaseTransformDialog {
     // widget within the layout.
 
     //
-    // Transform name (Label and Edit Box)
-    // - Location: top of the dialog box
-    //
-    fdlTransformName = new FormData();
-    fdlTransformName.top = new FormAttachment(0, 15);
-    fdlTransformName.left = new FormAttachment(0, margin);
-    fdlTransformName.right = new FormAttachment(middle, -margin);
-    wlTransformName.setLayoutData(fdlTransformName);
-
-    fdTransformName = new FormData();
-    fdTransformName.top = new FormAttachment(wlTransformName, 0, SWT.CENTER);
-    fdTransformName.left = new FormAttachment(wlTransformName, margin);
-    fdTransformName.right =
-        new FormAttachment(100, -margin); // 100% of the form component (length of edit box)
-    wTransformName.setLayoutData(fdTransformName);
-
-    //
     // Tabs will appear below the "Transform Name" area and above the buttons at the bottom of the
     // dialog.
     //
@@ -733,7 +675,7 @@ public class MonetDbBulkLoaderDialog extends BaseTransformDialog {
     fdReturn.top = new FormAttachment(wGetLU, 3 * margin);
     fdReturn.left = new FormAttachment(0, margin);
     fdReturn.right = new FormAttachment(100, -margin);
-    fdReturn.bottom = new FormAttachment(100, -2 * margin);
+    fdReturn.bottom = new FormAttachment(100, 0);
     wReturn.setLayoutData(fdReturn);
 
     //
@@ -787,6 +729,7 @@ public class MonetDbBulkLoaderDialog extends BaseTransformDialog {
     setTableFieldCombo();
     input.setChanged(changed);
 
+    buildButtonBar().ok(e -> ok()).sql(e -> create()).cancel(e -> cancel()).build();
     BaseDialog.defaultShellHandling(shell, c -> ok(), c -> cancel());
 
     return transformName;

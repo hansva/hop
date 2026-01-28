@@ -19,14 +19,9 @@ package org.apache.hop.pipeline.transforms.languagemodelchat;
 
 import static org.apache.hop.pipeline.transforms.languagemodelchat.internals.ui.CompositeParameters.Builder.buildCompositeParameters;
 import static org.apache.hop.pipeline.transforms.languagemodelchat.internals.ui.i18nUtil.i18n;
-import static org.apache.hop.ui.core.PropsUi.getMargin;
 import static org.apache.hop.ui.core.PropsUi.setLook;
 import static org.apache.hop.ui.core.dialog.BaseDialog.defaultShellHandling;
 import static org.eclipse.swt.SWT.BORDER;
-import static org.eclipse.swt.SWT.DIALOG_TRIM;
-import static org.eclipse.swt.SWT.MAX;
-import static org.eclipse.swt.SWT.MIN;
-import static org.eclipse.swt.SWT.RESIZE;
 
 import java.util.Collection;
 import java.util.List;
@@ -71,22 +66,9 @@ public class LanguageModelChatDialog extends BaseTransformDialog
 
   @Override
   public String open() {
-    Shell parent = getParent();
-
-    shell = new Shell(parent, DIALOG_TRIM | RESIZE | MIN | MAX);
-    setLook(shell);
-    setShellImage(shell, input);
+    createShell(i18n("LanguageModelChatDialog.Shell.Title"));
 
     changed = input.hasChanged();
-
-    int margin = getMargin();
-
-    FormLayout formLayout = new FormLayout();
-    formLayout.marginWidth = margin;
-    formLayout.marginHeight = margin;
-
-    shell.setLayout(formLayout);
-    shell.setText(i18n("LanguageModelChatDialog.Shell.Title"));
 
     // Model Specific Composite
     Composite modelComposite = new Composite(shell, BORDER);

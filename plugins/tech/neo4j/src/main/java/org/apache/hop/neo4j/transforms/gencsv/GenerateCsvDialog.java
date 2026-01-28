@@ -35,7 +35,6 @@ import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormData;
 import org.eclipse.swt.layout.FormLayout;
-import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Label;
@@ -69,15 +68,7 @@ public class GenerateCsvDialog extends BaseTransformDialog {
 
   @Override
   public String open() {
-    Shell parent = getParent();
-
-    shell = new Shell(parent, SWT.DIALOG_TRIM | SWT.RESIZE | SWT.MAX | SWT.MIN);
-    PropsUi.setLook(shell);
-    setShellImage(shell, input);
-
-    FormLayout shellLayout = new FormLayout();
-    shell.setLayout(shellLayout);
-    shell.setText(BaseMessages.getString(PKG, "GenerateCsvMeta.name"));
+    createShell(BaseMessages.getString(PKG, "GenerateCsvMeta.name"));
 
     ModifyListener lsMod = e -> input.setChanged();
     changed = input.hasChanged();
@@ -107,29 +98,6 @@ public class GenerateCsvDialog extends BaseTransformDialog {
     formLayout.marginHeight = PropsUi.getFormMargin();
     wComposite.setLayout(formLayout);
 
-    int middle = props.getMiddlePct();
-    int margin = PropsUi.getMargin();
-
-    // Transform name line
-    //
-    Label wlTransformName = new Label(wComposite, SWT.RIGHT);
-    wlTransformName.setText("Transform name");
-    PropsUi.setLook(wlTransformName);
-    fdlTransformName = new FormData();
-    fdlTransformName.left = new FormAttachment(0, 0);
-    fdlTransformName.right = new FormAttachment(middle, -margin);
-    fdlTransformName.top = new FormAttachment(0, margin);
-    wlTransformName.setLayoutData(fdlTransformName);
-    wTransformName = new Text(wComposite, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    PropsUi.setLook(wTransformName);
-    wTransformName.addModifyListener(lsMod);
-    fdTransformName = new FormData();
-    fdTransformName.left = new FormAttachment(middle, 0);
-    fdTransformName.top = new FormAttachment(wlTransformName, 0, SWT.CENTER);
-    fdTransformName.right = new FormAttachment(100, 0);
-    wTransformName.setLayoutData(fdTransformName);
-    Control lastControl = wTransformName;
-
     String[] fieldnames = new String[] {};
     try {
       fieldnames = pipelineMeta.getPrevTransformFields(variables, transformMeta).getFieldNames();
@@ -145,7 +113,7 @@ public class GenerateCsvDialog extends BaseTransformDialog {
     FormData fdlGraphField = new FormData();
     fdlGraphField.left = new FormAttachment(0, 0);
     fdlGraphField.right = new FormAttachment(middle, -margin);
-    fdlGraphField.top = new FormAttachment(lastControl, 2 * margin);
+    fdlGraphField.top = new FormAttachment(wTransformName, 2 * margin);
     wlGraphField.setLayoutData(fdlGraphField);
     wGraphField = new CCombo(wComposite, SWT.FLAT | SWT.BORDER);
     wGraphField.setItems(fieldnames);
@@ -155,7 +123,7 @@ public class GenerateCsvDialog extends BaseTransformDialog {
     fdGraphField.right = new FormAttachment(100, 0);
     fdGraphField.top = new FormAttachment(wlGraphField, 0, SWT.CENTER);
     wGraphField.setLayoutData(fdGraphField);
-    lastControl = wGraphField;
+    Control lastControl = wGraphField;
 
     // The base folder to run the command from
     //
@@ -249,16 +217,6 @@ public class GenerateCsvDialog extends BaseTransformDialog {
     wFileTypeField.setLayoutData(fdFileTypeField);
     lastControl = wFileTypeField;
 
-    // Some buttons
-    wOk = new Button(wComposite, SWT.PUSH);
-    wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
-    wCancel = new Button(wComposite, SWT.PUSH);
-    wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
-
-    // Position the buttons at the bottom of the dialog.
-    //
-    setButtonPositions(new Button[] {wOk, wCancel}, margin, lastControl);
-
     wComposite.pack();
     Rectangle bounds = wComposite.getBounds();
 
@@ -269,13 +227,9 @@ public class GenerateCsvDialog extends BaseTransformDialog {
     wScrolledComposite.setMinWidth(bounds.width);
     wScrolledComposite.setMinHeight(bounds.height);
 
-    // Add listeners
-    //
-    wCancel.addListener(SWT.Selection, e -> cancel());
-    wOk.addListener(SWT.Selection, e -> ok());
-
     getData();
 
+    buildButtonBar().ok(e -> ok()).cancel(e -> cancel()).build();
     BaseDialog.defaultShellHandling(shell, c -> ok(), c -> cancel());
 
     return transformName;

@@ -29,7 +29,6 @@ import com.google.api.services.sheets.v4.model.Sheet;
 import com.google.api.services.sheets.v4.model.Spreadsheet;
 import java.util.List;
 import org.apache.commons.lang.StringUtils;
-import org.apache.hop.core.Const;
 import org.apache.hop.core.Props;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.i18n.BaseMessages;
@@ -50,7 +49,6 @@ import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
-import org.eclipse.swt.widgets.Text;
 
 public class GoogleSheetsOutputDialog extends BaseTransformDialog {
 
@@ -98,52 +96,7 @@ public class GoogleSheetsOutputDialog extends BaseTransformDialog {
 
   @Override
   public String open() {
-    Shell parent = this.getParent();
-
-    shell = new Shell(parent, SWT.DIALOG_TRIM | SWT.RESIZE | SWT.MAX | SWT.MIN);
-    PropsUi.setLook(shell);
-    setShellImage(shell, meta);
-
-    FormLayout formLayout = new FormLayout();
-    formLayout.marginWidth = Const.FORM_MARGIN;
-    formLayout.marginHeight = Const.FORM_MARGIN;
-
-    shell.setLayout(formLayout);
-    shell.setText(BaseMessages.getString(PKG, "GoogleSheetsOutput.transform.Name"));
-
-    int middle = props.getMiddlePct();
-    int margin = Const.MARGIN;
-
-    // OK and cancel buttons at the bottom
-    //
-    wOk = new Button(shell, SWT.PUSH);
-    wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
-    wOk.addListener(SWT.Selection, e -> ok());
-    wCancel = new Button(shell, SWT.PUSH);
-    wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
-    wCancel.addListener(SWT.Selection, e -> cancel());
-
-    BaseTransformDialog.positionBottomButtons(shell, new Button[] {wOk, wCancel}, margin, null);
-
-    // transformName - Label
-    wlTransformName = new Label(shell, SWT.RIGHT);
-    wlTransformName.setText(BaseMessages.getString(PKG, "GoogleSheetsOutput.transform.Name"));
-    PropsUi.setLook(wlTransformName);
-    fdlTransformName = new FormData();
-    fdlTransformName.top = new FormAttachment(0, margin);
-    fdlTransformName.left = new FormAttachment(0, 0);
-    fdlTransformName.right = new FormAttachment(middle, -margin);
-    wlTransformName.setLayoutData(fdlTransformName);
-
-    // transformName - Text
-    wTransformName = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    wTransformName.setText(transformName);
-    PropsUi.setLook(wTransformName);
-    fdTransformName = new FormData();
-    fdTransformName.top = new FormAttachment(0, margin);
-    fdTransformName.left = new FormAttachment(middle, 0);
-    fdTransformName.right = new FormAttachment(100, 0);
-    wTransformName.setLayoutData(fdTransformName);
+    createShell(BaseMessages.getString(PKG, "GoogleSheetsOutput.transform.Name"));
 
     CTabFolder tabFolder = new CTabFolder(shell, SWT.BORDER);
     PropsUi.setLook(tabFolder, Props.WIDGET_STYLE_TAB);
@@ -523,7 +476,7 @@ public class GoogleSheetsOutputDialog extends BaseTransformDialog {
     tabFolderData.left = new FormAttachment(0, 0);
     tabFolderData.top = new FormAttachment(wTransformName, margin);
     tabFolderData.right = new FormAttachment(100, 0);
-    tabFolderData.bottom = new FormAttachment(wOk, -2 * margin);
+    tabFolderData.bottom = new FormAttachment(100, -50);
     tabFolder.setLayoutData(tabFolderData);
 
     tabFolder.setSelection(0);
@@ -531,6 +484,7 @@ public class GoogleSheetsOutputDialog extends BaseTransformDialog {
     getData(meta);
     meta.setChanged(changed);
 
+    buildButtonBar().ok(e -> ok()).cancel(e -> cancel()).build();
     BaseDialog.defaultShellHandling(shell, c -> ok(), c -> cancel());
 
     return transformName;

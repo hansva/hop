@@ -65,7 +65,6 @@ import org.eclipse.swt.widgets.Group;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.TableItem;
-import org.eclipse.swt.widgets.Text;
 
 public class LdapOutputDialog extends BaseTransformDialog {
   private static final Class<?> PKG = LdapOutputMeta.class;
@@ -152,54 +151,10 @@ public class LdapOutputDialog extends BaseTransformDialog {
 
   @Override
   public String open() {
-    Shell parent = getParent();
-
-    shell = new Shell(parent, SWT.DIALOG_TRIM | SWT.RESIZE | SWT.MAX | SWT.MIN);
-    PropsUi.setLook(shell);
-    setShellImage(shell, input);
+    createShell(BaseMessages.getString(PKG, "LdapOutputDialog.DialogTitle"));
 
     ModifyListener lsMod = e -> input.setChanged();
     changed = input.hasChanged();
-
-    FormLayout formLayout = new FormLayout();
-    formLayout.marginWidth = PropsUi.getFormMargin();
-    formLayout.marginHeight = PropsUi.getFormMargin();
-
-    shell.setLayout(formLayout);
-    shell.setText(BaseMessages.getString(PKG, "LdapOutputDialog.DialogTitle"));
-
-    int middle = props.getMiddlePct();
-    int margin = PropsUi.getMargin();
-
-    // Buttons go at the bottom
-    //
-    wOk = new Button(shell, SWT.PUSH);
-    wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
-    wOk.addListener(SWT.Selection, e -> ok());
-    wCancel = new Button(shell, SWT.PUSH);
-    wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
-    wCancel.addListener(SWT.Selection, e -> cancel());
-    setButtonPositions(new Button[] {wOk, wCancel}, margin, null);
-
-    // TransformName line
-    wlTransformName = new Label(shell, SWT.RIGHT);
-    wlTransformName.setText(BaseMessages.getString(PKG, "System.TransformName.Label"));
-    wlTransformName.setToolTipText(BaseMessages.getString(PKG, "System.TransformName.Tooltip"));
-    PropsUi.setLook(wlTransformName);
-    fdlTransformName = new FormData();
-    fdlTransformName.left = new FormAttachment(0, 0);
-    fdlTransformName.top = new FormAttachment(0, margin);
-    fdlTransformName.right = new FormAttachment(middle, -margin);
-    wlTransformName.setLayoutData(fdlTransformName);
-    wTransformName = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    wTransformName.setText(transformName);
-    PropsUi.setLook(wTransformName);
-    wTransformName.addModifyListener(lsMod);
-    fdTransformName = new FormData();
-    fdTransformName.left = new FormAttachment(middle, 0);
-    fdTransformName.top = new FormAttachment(0, margin);
-    fdTransformName.right = new FormAttachment(100, 0);
-    wTransformName.setLayoutData(fdTransformName);
 
     CTabFolder wTabFolder = new CTabFolder(shell, SWT.BORDER);
     PropsUi.setLook(wTabFolder, Props.WIDGET_STYLE_TAB);
@@ -239,7 +194,7 @@ public class LdapOutputDialog extends BaseTransformDialog {
     PropsUi.setLook(wlHost);
     FormData fdlHost = new FormData();
     fdlHost.left = new FormAttachment(0, 0);
-    fdlHost.top = new FormAttachment(wTransformName, margin);
+    fdlHost.top = new FormAttachment(0, margin);
     fdlHost.right = new FormAttachment(middle, -margin);
     wlHost.setLayoutData(fdlHost);
     wHost = new TextVar(variables, wConnectionGroup, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
@@ -248,7 +203,7 @@ public class LdapOutputDialog extends BaseTransformDialog {
     wHost.addModifyListener(lsMod);
     FormData fdHost = new FormData();
     fdHost.left = new FormAttachment(middle, 0);
-    fdHost.top = new FormAttachment(wTransformName, margin);
+    fdHost.top = new FormAttachment(0, margin);
     fdHost.right = new FormAttachment(100, 0);
     wHost.setLayoutData(fdHost);
 
@@ -647,7 +602,7 @@ public class LdapOutputDialog extends BaseTransformDialog {
     FormData fdlOperation = new FormData();
     fdlOperation.left = new FormAttachment(0, 0);
     fdlOperation.right = new FormAttachment(middle, -margin);
-    fdlOperation.top = new FormAttachment(wTransformName, margin);
+    fdlOperation.top = new FormAttachment(0, margin);
     wlOperation.setLayoutData(fdlOperation);
 
     wOperation = new CCombo(wSettings, SWT.BORDER | SWT.READ_ONLY);
@@ -655,7 +610,7 @@ public class LdapOutputDialog extends BaseTransformDialog {
     wOperation.addModifyListener(lsMod);
     FormData fdOperation = new FormData();
     fdOperation.left = new FormAttachment(middle, 0);
-    fdOperation.top = new FormAttachment(wTransformName, margin);
+    fdOperation.top = new FormAttachment(0, margin);
     fdOperation.right = new FormAttachment(100, -margin);
     wOperation.setLayoutData(fdOperation);
     wOperation.setItems(LdapOutputMeta.operationTypeDesc);
@@ -1053,9 +1008,9 @@ public class LdapOutputDialog extends BaseTransformDialog {
 
     FormData fdTabFolder = new FormData();
     fdTabFolder.left = new FormAttachment(0, 0);
-    fdTabFolder.top = new FormAttachment(wTransformName, margin);
+    fdTabFolder.top = new FormAttachment(0, margin);
     fdTabFolder.right = new FormAttachment(100, 0);
-    fdTabFolder.bottom = new FormAttachment(wOk, -2 * margin);
+    fdTabFolder.bottom = new FormAttachment(100, -50);
     wTabFolder.setLayoutData(fdTabFolder);
 
     // Add listeners
@@ -1071,6 +1026,7 @@ public class LdapOutputDialog extends BaseTransformDialog {
     updateOperation();
     input.setChanged(changed);
 
+    buildButtonBar().ok(e -> ok()).cancel(e -> cancel()).build();
     BaseDialog.defaultShellHandling(shell, c -> ok(), c -> cancel());
 
     return transformName;

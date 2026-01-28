@@ -67,6 +67,7 @@ public class ConfigGeneralOptionsTab {
   private Button wbUseGlobalFileBookmarks;
   private Button wSortFieldByName;
   private Text wMaxExecutionLoggingTextSize;
+  private Button wResetDialogPositions;
 
   private boolean isReloading = false; // Flag to prevent saving during reload
 
@@ -105,6 +106,11 @@ public class ConfigGeneralOptionsTab {
       wbUseGlobalFileBookmarks.setSelection(props.useGlobalFileBookmarks());
       wMaxExecutionLoggingTextSize.setText(
           Integer.toString(props.getMaxExecutionLoggingTextSize()));
+
+      // Only reload if widget is initialized
+      if (wResetDialogPositions != null && !wResetDialogPositions.isDisposed()) {
+        wResetDialogPositions.setSelection(props.getResetDialogPositionsOnRestart());
+      }
     } finally {
       // Always reset the flag
       isReloading = false;
@@ -428,6 +434,59 @@ public class ConfigGeneralOptionsTab {
     tooltipsItem.setHeight(tooltipsContent.computeSize(SWT.DEFAULT, SWT.DEFAULT).y);
     tooltipsItem.setExpanded(true); // Start expanded
 
+    // Dialog Positioning section - using ExpandBar
+    Composite dialogPosContent = new Composite(expandBar, SWT.NONE);
+    PropsUi.setLook(dialogPosContent);
+    FormLayout dialogPosLayout = new FormLayout();
+    dialogPosLayout.marginWidth = PropsUi.getFormMargin();
+    dialogPosLayout.marginHeight = PropsUi.getFormMargin();
+    dialogPosContent.setLayout(dialogPosLayout);
+
+    // Reset dialog positions checkbox
+    Control lastDialogPosControl = null;
+    wResetDialogPositions =
+        createCheckbox(
+            dialogPosContent,
+            "EnterOptionsDialog.ResetDialogPositions.Label",
+            "EnterOptionsDialog.ResetDialogPositions.Tooltip",
+            props.getResetDialogPositionsOnRestart(),
+            lastDialogPosControl,
+            margin);
+    lastDialogPosControl = wResetDialogPositions;
+
+    // Clear dialog positions button
+    Control[] clearDialogPosControls =
+        createButton(
+            dialogPosContent,
+            "EnterOptionsDialog.ClearDialogPositions.Label",
+            "EnterOptionsDialog.ClearDialogPositions.Tooltip",
+            lastDialogPosControl,
+            2 * margin);
+    Button wClearDialogPositions = (Button) clearDialogPosControls[0];
+    wClearDialogPositions.addListener(
+        SWT.Selection,
+        e -> {
+          // Clear both session and persistent dialog positions
+          props.clearSessionScreens();
+          props.clearPersistedDialogScreens();
+
+          // Show confirmation message
+          org.apache.hop.ui.core.dialog.MessageBox mb =
+              new org.apache.hop.ui.core.dialog.MessageBox(shell, SWT.OK | SWT.ICON_INFORMATION);
+          mb.setMessage(
+              BaseMessages.getString(PKG, "EnterOptionsDialog.ClearDialogPositions.Confirmation"));
+          mb.setText(BaseMessages.getString(PKG, "EnterOptionsDialog.ClearDialogPositions.Title"));
+          mb.open();
+        });
+
+    // Create the dialog positioning expand item
+    ExpandItem dialogPosItem = new ExpandItem(expandBar, SWT.NONE);
+    dialogPosItem.setText(
+        BaseMessages.getString(PKG, "EnterOptionsDialog.Section.DialogPositioning"));
+    dialogPosItem.setControl(dialogPosContent);
+    dialogPosItem.setHeight(dialogPosContent.computeSize(SWT.DEFAULT, SWT.DEFAULT).y);
+    dialogPosItem.setExpanded(true); // Start expanded
+
     // Add expand/collapse listeners for space reclamation
     expandBar.addListener(
         SWT.Expand,
@@ -654,6 +713,11 @@ public class ConfigGeneralOptionsTab {
         Const.toInt(
             wMaxExecutionLoggingTextSize.getText(),
             PropsUi.DEFAULT_MAX_EXECUTION_LOGGING_TEXT_SIZE));
+
+    // Only save if widget is initialized (it's created after other widgets)
+    if (wResetDialogPositions != null && !wResetDialogPositions.isDisposed()) {
+      props.setResetDialogPositionsOnRestart(wResetDialogPositions.getSelection());
+    }
 
     try {
       HopConfig.getInstance().saveToFile();

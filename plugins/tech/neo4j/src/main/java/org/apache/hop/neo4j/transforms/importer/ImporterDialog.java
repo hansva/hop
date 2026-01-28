@@ -84,15 +84,7 @@ public class ImporterDialog extends BaseTransformDialog {
 
   @Override
   public String open() {
-    Shell parent = getParent();
-
-    shell = new Shell(parent, SWT.DIALOG_TRIM | SWT.RESIZE | SWT.MAX | SWT.MIN);
-    PropsUi.setLook(shell);
-    setShellImage(shell, input);
-
-    FormLayout shellLayout = new FormLayout();
-    shell.setLayout(shellLayout);
-    shell.setText(BaseMessages.getString(PKG, "ImporterMeta.name"));
+    createShell(BaseMessages.getString(PKG, "ImporterMeta.name"));
 
     ModifyListener lsMod = e -> input.setChanged();
     changed = input.hasChanged();
@@ -122,29 +114,6 @@ public class ImporterDialog extends BaseTransformDialog {
     formLayout.marginHeight = PropsUi.getFormMargin();
     wComposite.setLayout(formLayout);
 
-    int middle = props.getMiddlePct();
-    int margin = PropsUi.getMargin();
-
-    // Transform name line
-    //
-    Label wlTransformName = new Label(wComposite, SWT.RIGHT);
-    wlTransformName.setText("Transform name");
-    PropsUi.setLook(wlTransformName);
-    fdlTransformName = new FormData();
-    fdlTransformName.left = new FormAttachment(0, 0);
-    fdlTransformName.right = new FormAttachment(middle, -margin);
-    fdlTransformName.top = new FormAttachment(0, margin);
-    wlTransformName.setLayoutData(fdlTransformName);
-    wTransformName = new Text(wComposite, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    PropsUi.setLook(wTransformName);
-    wTransformName.addModifyListener(lsMod);
-    fdTransformName = new FormData();
-    fdTransformName.left = new FormAttachment(middle, 0);
-    fdTransformName.top = new FormAttachment(wlTransformName, 0, SWT.CENTER);
-    fdTransformName.right = new FormAttachment(100, 0);
-    wTransformName.setLayoutData(fdTransformName);
-    Control lastControl = wTransformName;
-
     String[] fieldnames = new String[] {};
     try {
       fieldnames = pipelineMeta.getPrevTransformFields(variables, transformMeta).getFieldNames();
@@ -160,7 +129,7 @@ public class ImporterDialog extends BaseTransformDialog {
     FormData fdlFilenameField = new FormData();
     fdlFilenameField.left = new FormAttachment(0, 0);
     fdlFilenameField.right = new FormAttachment(middle, -margin);
-    fdlFilenameField.top = new FormAttachment(lastControl, 2 * margin);
+    fdlFilenameField.top = new FormAttachment(wTransformName, 2 * margin);
     wlFilenameField.setLayoutData(fdlFilenameField);
     wFilenameField = new CCombo(wComposite, SWT.CHECK | SWT.BORDER);
     wFilenameField.setItems(fieldnames);
@@ -170,7 +139,7 @@ public class ImporterDialog extends BaseTransformDialog {
     fdFilenameField.right = new FormAttachment(100, 0);
     fdFilenameField.top = new FormAttachment(wlFilenameField, 0, SWT.CENTER);
     wFilenameField.setLayoutData(fdFilenameField);
-    lastControl = wlFilenameField;
+    Control lastControl = wlFilenameField;
 
     // FileType field
     //
@@ -622,16 +591,6 @@ public class ImporterDialog extends BaseTransformDialog {
     wProcessors.setLayoutData(fdProcessors);
     lastControl = wProcessors;
 
-    // Some buttons
-    wOk = new Button(wComposite, SWT.PUSH);
-    wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
-    wCancel = new Button(wComposite, SWT.PUSH);
-    wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
-
-    // Position the buttons at the bottom of the dialog.
-    //
-    setButtonPositions(new Button[] {wOk, wCancel}, margin, lastControl);
-
     wComposite.pack();
     Rectangle bounds = wComposite.getBounds();
 
@@ -642,13 +601,9 @@ public class ImporterDialog extends BaseTransformDialog {
     wScrolledComposite.setMinWidth(bounds.width);
     wScrolledComposite.setMinHeight(bounds.height);
 
-    // Add listeners
-    //
-    wCancel.addListener(SWT.Selection, e -> cancel());
-    wOk.addListener(SWT.Selection, e -> ok());
-
     getData();
 
+    buildButtonBar().ok(e -> ok()).cancel(e -> cancel()).build();
     BaseDialog.defaultShellHandling(shell, c -> ok(), c -> cancel());
 
     return transformName;

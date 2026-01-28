@@ -30,11 +30,8 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.ModifyListener;
 import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormData;
-import org.eclipse.swt.layout.FormLayout;
-import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
-import org.eclipse.swt.widgets.Text;
 
 public class ReservoirSamplingDialog extends BaseTransformDialog {
 
@@ -71,49 +68,12 @@ public class ReservoirSamplingDialog extends BaseTransformDialog {
    */
   @Override
   public String open() {
-    Shell parent = getParent();
-
-    shell = new Shell(parent, SWT.DIALOG_TRIM | SWT.RESIZE | SWT.MIN | SWT.MAX);
-
-    PropsUi.setLook(shell);
-    setShellImage(shell, input);
+    createShell(BaseMessages.getString(PKG, "ReservoirSamplingDialog.Shell.Title"));
 
     // used to listen to a text field (m_wTransformName)
     ModifyListener lsMod = e -> input.setChanged();
 
-    FormLayout formLayout = new FormLayout();
-    formLayout.marginWidth = PropsUi.getFormMargin();
-    formLayout.marginHeight = PropsUi.getFormMargin();
-
-    shell.setLayout(formLayout);
-    shell.setText(BaseMessages.getString(PKG, "ReservoirSamplingDialog.Shell.Title"));
-
-    int middle = props.getMiddlePct();
-    int margin = PropsUi.getMargin();
-
-    // TransformName line
     // various UI bits and pieces
-    Label mWlTransformName = new Label(shell, SWT.RIGHT);
-    mWlTransformName.setText(
-        BaseMessages.getString(PKG, "ReservoirSamplingDialog.TransformName.Label"));
-    PropsUi.setLook(mWlTransformName);
-
-    FormData mFdlTransformName = new FormData();
-    mFdlTransformName.left = new FormAttachment(0, 0);
-    mFdlTransformName.right = new FormAttachment(middle, -margin);
-    mFdlTransformName.top = new FormAttachment(0, margin);
-    mWlTransformName.setLayoutData(mFdlTransformName);
-    wTransformName = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    wTransformName.setText(transformName);
-    PropsUi.setLook(wTransformName);
-    wTransformName.addModifyListener(lsMod);
-
-    // format the text field
-    FormData mFdTransformName = new FormData();
-    mFdTransformName.left = new FormAttachment(middle, 0);
-    mFdTransformName.top = new FormAttachment(0, margin);
-    mFdTransformName.right = new FormAttachment(100, 0);
-    wTransformName.setLayoutData(mFdTransformName);
 
     // Sample size text field
     Label mWlSampleSize = new Label(shell, SWT.RIGHT);
@@ -155,18 +115,6 @@ public class ReservoirSamplingDialog extends BaseTransformDialog {
     mFdSeed.top = new FormAttachment(wSampleSize, margin);
     wSeed.setLayoutData(mFdSeed);
 
-    // Some buttons
-    wOk = new Button(shell, SWT.PUSH);
-    wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
-    wCancel = new Button(shell, SWT.PUSH);
-    wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
-
-    setButtonPositions(new Button[] {wOk, wCancel}, margin, wSeed);
-
-    // Add listeners
-    wCancel.addListener(SWT.Selection, e -> cancel());
-    wOk.addListener(SWT.Selection, e -> ok());
-
     // Whenever something changes, set the tooltip to the expanded version:
     wSampleSize.addModifyListener(
         e -> wSampleSize.setToolTipText(variables.resolve(wSampleSize.getText())));
@@ -176,6 +124,7 @@ public class ReservoirSamplingDialog extends BaseTransformDialog {
 
     getData();
 
+    buildButtonBar().ok(e -> ok()).cancel(e -> cancel()).build();
     BaseDialog.defaultShellHandling(shell, c -> ok(), c -> cancel());
 
     return transformName;

@@ -67,7 +67,6 @@ import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.TableItem;
-import org.eclipse.swt.widgets.Text;
 
 /** Dialog class for MongoDbDelete step */
 public class MongoDbDeleteDialog extends BaseTransformDialog {
@@ -107,52 +106,13 @@ public class MongoDbDeleteDialog extends BaseTransformDialog {
 
   @Override
   public String open() {
-
-    Shell parent = getParent();
-
-    shell = new Shell(parent, SWT.DIALOG_TRIM | SWT.RESIZE | SWT.MIN | SWT.MAX);
-
-    PropsUi.setLook(shell);
-    setShellImage(shell, currentMeta);
+    createShell(BaseMessages.getString(PKG, "MongoDbDeleteDialog.Shell.Title"));
 
     // used to listen to a text field (wTransformName)
     ModifyListener lsMod = e -> currentMeta.setChanged();
-
     changed = currentMeta.hasChanged();
 
-    FormLayout formLayout = new FormLayout();
-    formLayout.marginWidth = PropsUi.getFormMargin();
-    formLayout.marginHeight = PropsUi.getFormMargin();
-
-    shell.setLayout(formLayout);
-    shell.setText(BaseMessages.getString(PKG, "MongoDbDeleteDialog.Shell.Title"));
-
-    int middle = props.getMiddlePct();
-    int margin = PropsUi.getMargin();
-
-    // TransformName line
-    /** various UI bits and pieces for the dialog */
-    Label wlTransformName = new Label(shell, SWT.RIGHT);
-    wlTransformName.setText(BaseMessages.getString(PKG, "MongoDbDeleteDialog.TransformName.Label"));
-    PropsUi.setLook(wlTransformName);
-
-    FormData fd = new FormData();
-    fd.left = new FormAttachment(0, 0);
-    fd.right = new FormAttachment(middle, -margin);
-    fd.top = new FormAttachment(0, margin);
-    wlTransformName.setLayoutData(fd);
-    wTransformName = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    wTransformName.setText(transformName);
-    PropsUi.setLook(wTransformName);
-    wTransformName.addModifyListener(lsMod);
     Control lastControl = wTransformName;
-
-    // format the text field
-    fd = new FormData();
-    fd.left = new FormAttachment(middle, 0);
-    fd.top = new FormAttachment(0, margin);
-    fd.right = new FormAttachment(100, 0);
-    wTransformName.setLayoutData(fd);
 
     // The tabs of the dialog
     CTabFolder wTabFolder = new CTabFolder(shell, SWT.BORDER);
@@ -201,7 +161,7 @@ public class MongoDbDeleteDialog extends BaseTransformDialog {
     wlCollection.setToolTipText(
         BaseMessages.getString(PKG, "MongoDbDeleteDialog.Collection.TipText")); // $NON-NLS-1$
     PropsUi.setLook(wlCollection);
-    fd = new FormData();
+    FormData fd = new FormData();
     fd.left = new FormAttachment(0, 0);
     fd.top = new FormAttachment(lastControl, margin);
     fd.right = new FormAttachment(middle, -margin);
@@ -479,19 +439,7 @@ public class MongoDbDeleteDialog extends BaseTransformDialog {
     fd.bottom = new FormAttachment(100, -50);
     wTabFolder.setLayoutData(fd);
 
-    // Buttons inherited from BaseStepDialog
-    wOk = new Button(shell, SWT.PUSH);
-    wOk.setText(BaseMessages.getString(PKG, "System.Button.OK")); // $NON-NLS-1$
-
-    wCancel = new Button(shell, SWT.PUSH);
-    wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel")); // $NON-NLS-1$
-
-    setButtonPositions(new Button[] {wOk, wCancel}, margin, wTabFolder);
-
     // Add listeners
-    wCancel.addListener(SWT.Selection, e -> cancel());
-    wOk.addListener(SWT.Selection, e -> ok());
-
     wTransformName.addListener(SWT.Selection, e -> ok());
 
     wTabFolder.setSelection(0);
@@ -506,6 +454,7 @@ public class MongoDbDeleteDialog extends BaseTransformDialog {
       setQueryJsonVisibility(false);
     }
 
+    buildButtonBar().ok(e -> ok()).cancel(e -> cancel()).build();
     BaseDialog.defaultShellHandling(shell, c -> ok(), c -> cancel());
 
     return transformName;

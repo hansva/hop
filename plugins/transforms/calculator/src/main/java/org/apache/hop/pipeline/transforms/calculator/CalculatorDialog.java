@@ -37,24 +37,19 @@ import org.apache.hop.ui.core.widget.TableView;
 import org.apache.hop.ui.pipeline.transform.BaseTransformDialog;
 import org.apache.hop.ui.util.SwtSvgImageUtil;
 import org.eclipse.swt.SWT;
-import org.eclipse.swt.events.ModifyListener;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormData;
-import org.eclipse.swt.layout.FormLayout;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.TableItem;
-import org.eclipse.swt.widgets.Text;
 
 public class CalculatorDialog extends BaseTransformDialog {
   private static final Class<?> PKG = CalculatorMeta.class;
   public static final String CONST_SYSTEM_COMBO_YES = "System.Combo.Yes";
-
-  private Text wTransformName;
 
   private Button wFailIfNoFile;
 
@@ -77,70 +72,17 @@ public class CalculatorDialog extends BaseTransformDialog {
 
   @Override
   public String open() {
-    Shell parent = getParent();
+    createShell(BaseMessages.getString(PKG, "CalculatorDialog.DialogTitle"));
 
-    shell = new Shell(parent, SWT.DIALOG_TRIM | SWT.RESIZE | SWT.MIN | SWT.MAX);
-    PropsUi.setLook(shell);
-    setShellImage(shell, currentMeta);
-
-    ModifyListener lsMod = e -> currentMeta.setChanged();
     changed = currentMeta.hasChanged();
 
-    FormLayout formLayout = new FormLayout();
-    int formMargin = 15;
-    formLayout.marginWidth = formMargin;
-    formLayout.marginHeight = formMargin;
-
-    shell.setLayout(formLayout);
-    shell.setText(BaseMessages.getString(PKG, "CalculatorDialog.DialogTitle"));
-
-    int middle = props.getMiddlePct();
-    int margin = PropsUi.getMargin();
     int fdMargin = 15;
-
-    // Buttons at the very bottom
-    //
-    wOk = new Button(shell, SWT.PUSH);
-    wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
-    wOk.addListener(SWT.Selection, e -> ok());
-    wCancel = new Button(shell, SWT.PUSH);
-    wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
-    wCancel.addListener(SWT.Selection, e -> cancel());
-    positionBottomButtons(shell, new Button[] {wOk, wCancel}, fdMargin, null);
-
-    // Image
-    Label wIcon = new Label(shell, SWT.RIGHT);
-    wIcon.setImage(getImage());
-    FormData fdlIcon = new FormData();
-    fdlIcon.top = new FormAttachment(0, 0);
-    fdlIcon.right = new FormAttachment(100, 0);
-    wIcon.setLayoutData(fdlIcon);
-    PropsUi.setLook(wIcon);
-
-    // TransformName line
-    Label wlTransformName = new Label(shell, SWT.RIGHT);
-    wlTransformName.setText(BaseMessages.getString(PKG, "System.TransformName.Label"));
-    wlTransformName.setToolTipText(BaseMessages.getString(PKG, "System.TransformName.Tooltip"));
-    PropsUi.setLook(wlTransformName);
-    FormData fdlTransformName = new FormData();
-    fdlTransformName.right = new FormAttachment(middle, -margin);
-    fdlTransformName.bottom = new FormAttachment(wIcon, 0, SWT.CENTER);
-    wlTransformName.setLayoutData(fdlTransformName);
-    wTransformName = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    wTransformName.setText(transformName);
-    PropsUi.setLook(wTransformName);
-    wTransformName.addModifyListener(lsMod);
-    FormData fdTransformName = new FormData();
-    fdTransformName.left = new FormAttachment(wlTransformName, margin);
-    fdTransformName.top = new FormAttachment(wlTransformName, 0, SWT.CENTER);
-    fdTransformName.right = new FormAttachment(wIcon, 0);
-    wTransformName.setLayoutData(fdTransformName);
 
     // Draw line separator
     Label separator = new Label(shell, SWT.HORIZONTAL | SWT.SEPARATOR);
     FormData fdSeparator = new FormData();
     fdSeparator.left = new FormAttachment(0, 0);
-    fdSeparator.top = new FormAttachment(wIcon, 0);
+    fdSeparator.top = new FormAttachment(wTransformName, margin);
     fdSeparator.right = new FormAttachment(100, 0);
     separator.setLayoutData(fdSeparator);
 
@@ -301,6 +243,7 @@ public class CalculatorDialog extends BaseTransformDialog {
 
     getData();
 
+    buildButtonBar().ok(e -> ok()).cancel(e -> cancel()).build();
     BaseDialog.defaultShellHandling(shell, c -> ok(), c -> cancel());
 
     return transformName;

@@ -63,9 +63,6 @@ public class MultiMergeJoinDialog extends BaseTransformDialog {
   private IRowMeta prev;
   private ColumnInfo[] ciKeys;
 
-  private final int margin = PropsUi.getMargin();
-  private final int middle = props.getMiddlePct();
-
   private final MultiMergeJoinMeta joinMeta;
   private String[] allInputTransforms;
 
@@ -111,40 +108,10 @@ public class MultiMergeJoinDialog extends BaseTransformDialog {
    */
   @Override
   public String open() {
-    Shell parent = getParent();
-
-    shell = new Shell(parent, SWT.DIALOG_TRIM | SWT.RESIZE | SWT.MIN | SWT.MAX);
-    PropsUi.setLook(shell);
-    setShellImage(shell, joinMeta);
+    createShell(BaseMessages.getString(PKG, "MultiMergeJoinDialog.Shell.Label"));
 
     final ModifyListener lsMod = e -> joinMeta.setChanged();
     backupChanged = joinMeta.hasChanged();
-
-    FormLayout formLayout = new FormLayout();
-    formLayout.marginWidth = PropsUi.getFormMargin();
-    formLayout.marginHeight = PropsUi.getFormMargin();
-
-    shell.setLayout(formLayout);
-    shell.setText(BaseMessages.getString(PKG, "MultiMergeJoinDialog.Shell.Label"));
-
-    wlTransformName = new Label(shell, SWT.RIGHT);
-    wlTransformName.setText(
-        BaseMessages.getString(PKG, "MultiMergeJoinDialog.TransformName.Label"));
-    PropsUi.setLook(wlTransformName);
-    fdlTransformName = new FormData();
-    fdlTransformName.left = new FormAttachment(0, 0);
-    fdlTransformName.right = new FormAttachment(middle, -margin);
-    fdlTransformName.top = new FormAttachment(0, margin);
-    wlTransformName.setLayoutData(fdlTransformName);
-    wTransformName = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    wTransformName.setText(transformName);
-    PropsUi.setLook(wTransformName);
-    wTransformName.addModifyListener(lsMod);
-    fdTransformName = new FormData();
-    fdTransformName.left = new FormAttachment(wlTransformName, margin);
-    fdTransformName.top = new FormAttachment(wlTransformName, 0, SWT.CENTER);
-    fdTransformName.right = new FormAttachment(100, 0);
-    wTransformName.setLayoutData(fdTransformName);
 
     // create widgets for input stream and join key selections
     createInputStreamWidgets(lsMod);
@@ -152,22 +119,11 @@ public class MultiMergeJoinDialog extends BaseTransformDialog {
     // create widgets for Join type
     createJoinTypeWidget(lsMod);
 
-    // Some buttons
-    wOk = new Button(shell, SWT.PUSH);
-    wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
-    wCancel = new Button(shell, SWT.PUSH);
-    wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
-
-    setButtonPositions(new Button[] {wOk, wCancel}, margin, null);
-
-    // Add listeners
-    wCancel.addListener(SWT.Selection, e -> cancel());
-    wOk.addListener(SWT.Selection, e -> ok());
-
     // get the data
     getData();
     joinMeta.setChanged(backupChanged);
 
+    buildButtonBar().ok(e -> ok()).cancel(e -> cancel()).build();
     BaseDialog.defaultShellHandling(shell, c -> ok(), c -> cancel());
 
     return transformName;

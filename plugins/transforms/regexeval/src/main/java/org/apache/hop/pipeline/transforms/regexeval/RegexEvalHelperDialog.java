@@ -104,7 +104,7 @@ public class RegexEvalHelperDialog extends Dialog {
   public String open() {
     Shell parent = getParent();
 
-    shell = new Shell(parent, SWT.DIALOG_TRIM | SWT.RESIZE | SWT.MAX | SWT.MIN | SWT.NONE);
+    shell = new Shell(parent, BaseDialog.getDefaultDialogStyle());
     PropsUi.setLook(shell);
     shell.setImage(GuiResource.getInstance().getImageHopUi());
 

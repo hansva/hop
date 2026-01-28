@@ -49,7 +49,6 @@ import org.eclipse.swt.layout.FormData;
 import org.eclipse.swt.layout.FormLayout;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
-import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Group;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.List;
@@ -139,53 +138,7 @@ public class ValidatorDialog extends BaseTransformDialog {
 
   @Override
   public String open() {
-    Shell parent = getParent();
-    Display display = parent.getDisplay();
-
-    shell = new Shell(parent, SWT.DIALOG_TRIM | SWT.RESIZE | SWT.MIN | SWT.MAX);
-    PropsUi.setLook(shell);
-    setShellImage(shell, input);
-
-    shell.setLayout(props.createFormLayout());
-    shell.setText(BaseMessages.getString(PKG, "ValidatorDialog.Transform.Name"));
-
-    int middle = props.getMiddlePct();
-    int margin = PropsUi.getMargin();
-
-    // TransformName line
-    //
-    wlTransformName = new Label(shell, SWT.RIGHT);
-    wlTransformName.setText(BaseMessages.getString(PKG, "ValidatorDialog.TransformName.Label"));
-    PropsUi.setLook(wlTransformName);
-    fdlTransformName = new FormData();
-    fdlTransformName.left = new FormAttachment(0, 0);
-    fdlTransformName.right = new FormAttachment(middle, -margin);
-    fdlTransformName.top = new FormAttachment(0, margin);
-    wlTransformName.setLayoutData(fdlTransformName);
-    wTransformName = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    wTransformName.setText(transformName);
-    PropsUi.setLook(wTransformName);
-    fdTransformName = new FormData();
-    fdTransformName.left = new FormAttachment(middle, 0);
-    fdTransformName.top = new FormAttachment(0, margin);
-    fdTransformName.right = new FormAttachment(100, 0);
-    wTransformName.setLayoutData(fdTransformName);
-
-    // Add some buttons at the bottom of the dialog
-    //
-    wOk = new Button(shell, SWT.PUSH);
-    wOk.setText(BaseMessages.getString(PKG, "System.Button.OK"));
-    wOk.addListener(SWT.Selection, e -> ok());
-    Button wNew = new Button(shell, SWT.PUSH);
-    wNew.setText(BaseMessages.getString(PKG, "ValidatorDialog.NewButton.Label"));
-    wNew.addListener(SWT.Selection, e -> newValidation());
-    Button wClear = new Button(shell, SWT.PUSH);
-    wClear.setText(BaseMessages.getString(PKG, "ValidatorDialog.ClearButton.Label"));
-    wClear.addListener(SWT.Selection, e -> clearValidation());
-    wCancel = new Button(shell, SWT.PUSH);
-    wCancel.setText(BaseMessages.getString(PKG, "System.Button.Cancel"));
-    wCancel.addListener(SWT.Selection, e -> cancel());
-    setButtonPositions(new Button[] {wOk, wNew, wClear, wCancel}, margin, null);
+    createShell(BaseMessages.getString(PKG, "ValidatorDialog.Transform.Name"));
 
     // List of fields to the left...
     //
@@ -208,7 +161,7 @@ public class ValidatorDialog extends BaseTransformDialog {
     fdFieldList.left = new FormAttachment(0, 0);
     fdFieldList.top = new FormAttachment(wlFieldList, margin);
     fdFieldList.right = new FormAttachment(middle / 2, -margin);
-    fdFieldList.bottom = new FormAttachment(wOk, -margin * 2);
+    fdFieldList.bottom = new FormAttachment(100, 0);
     wValidationsList.setLayoutData(fdFieldList);
 
     // General: an option to allow ALL the options to be checked.
@@ -253,7 +206,7 @@ public class ValidatorDialog extends BaseTransformDialog {
     fdComp.left = new FormAttachment(middle / 2, 0);
     fdComp.top = new FormAttachment(wConcatSeparator, margin);
     fdComp.right = new FormAttachment(100, 0);
-    fdComp.bottom = new FormAttachment(wOk, -margin * 2);
+    fdComp.bottom = new FormAttachment(100, 0);
     wSComp.setLayoutData(fdComp);
 
     Composite wComp = new Composite(wSComp, SWT.BORDER);
@@ -860,6 +813,15 @@ public class ValidatorDialog extends BaseTransformDialog {
     getData();
     input.setChanged(changed);
 
+    buildButtonBar()
+        .ok(e -> ok())
+        .custom(
+            BaseMessages.getString(PKG, "ValidatorDialog.NewButton.Label"), e -> newValidation())
+        .custom(
+            BaseMessages.getString(PKG, "ValidatorDialog.ClearButton.Label"),
+            e -> clearValidation())
+        .cancel(e -> cancel())
+        .build();
     BaseDialog.defaultShellHandling(shell, c -> ok(), c -> cancel());
 
     return transformName;

@@ -75,7 +75,6 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.MessageBox;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.TableItem;
-import org.eclipse.swt.widgets.Text;
 
 public class CrateDBBulkLoaderDialog extends BaseTransformDialog {
 
@@ -152,12 +151,7 @@ public class CrateDBBulkLoaderDialog extends BaseTransformDialog {
 
   /** Open the dialog. */
   public String open() {
-
-    Shell parent = getParent();
-
-    shell = new Shell(parent, SWT.DIALOG_TRIM | SWT.RESIZE | SWT.MAX | SWT.MIN);
-    PropsUi.setLook(shell);
-    setShellImage(shell, input);
+    createShell(BaseMessages.getString(PKG, "CrateDBBulkLoaderDialog.DialogTitle"));
 
     ModifyListener lsMod = e -> input.setChanged();
     FocusListener lsFocusLost =
@@ -168,36 +162,6 @@ public class CrateDBBulkLoaderDialog extends BaseTransformDialog {
           }
         };
     backupChanged = input.hasChanged();
-
-    int middle = props.getMiddlePct();
-    int margin = Const.MARGIN;
-
-    FormLayout formLayout = new FormLayout();
-    formLayout.marginWidth = Const.FORM_MARGIN;
-    formLayout.marginHeight = Const.FORM_MARGIN;
-
-    shell.setLayout(formLayout);
-    shell.setText(BaseMessages.getString(PKG, "CrateDBBulkLoaderDialog.DialogTitle"));
-
-    // TransformName line
-    wlTransformName = new Label(shell, SWT.RIGHT);
-    wlTransformName.setText(BaseMessages.getString(PKG, "System.TransformName.Label"));
-    wlTransformName.setToolTipText(BaseMessages.getString(PKG, "System.TransformName.Tooltip"));
-    PropsUi.setLook(wlTransformName);
-    fdlTransformName = new FormData();
-    fdlTransformName.left = new FormAttachment(0, 0);
-    fdlTransformName.right = new FormAttachment(middle, -margin);
-    fdlTransformName.top = new FormAttachment(0, margin * 2);
-    wlTransformName.setLayoutData(fdlTransformName);
-    wTransformName = new Text(shell, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
-    wTransformName.setText(transformName);
-    PropsUi.setLook(wTransformName);
-    wTransformName.addModifyListener(lsMod);
-    fdTransformName = new FormData();
-    fdTransformName.left = new FormAttachment(middle, 0);
-    fdTransformName.top = new FormAttachment(0, margin * 2);
-    fdTransformName.right = new FormAttachment(100, 0);
-    wTransformName.setLayoutData(fdTransformName);
 
     Control lastControl = wTransformName;
 
@@ -265,33 +229,19 @@ public class CrateDBBulkLoaderDialog extends BaseTransformDialog {
     CTabFolder wTabFolder = new CTabFolder(shell, SWT.BORDER);
     PropsUi.setLook(wTabFolder, Props.WIDGET_STYLE_TAB);
 
-    // Some buttons
-    wOk = new Button(shell, SWT.PUSH);
-    wOk.setText(BaseMessages.getString("System.Button.OK"));
-    wCreate = new Button(shell, SWT.PUSH);
-    wCreate.setText(BaseMessages.getString("System.Button.SQL"));
-    wCancel = new Button(shell, SWT.PUSH);
-    wCancel.setText(BaseMessages.getString("System.Button.Cancel"));
-
     addGeneralTab(wTabFolder, margin, middle, lsMod, lsFocusLost);
     addAwsAuthenticationTab(wTabFolder, margin, middle, lsMod, lsFocusLost);
     addHttpAuthenticationTab(wTabFolder, margin, middle, lsMod, lsFocusLost);
     addFieldsTab(wTabFolder, margin, lsMod);
 
-    setButtonPositions(new Button[] {wOk, wCancel, wCreate}, margin, null);
-
     FormData fdTabFolder = new FormData();
     fdTabFolder.left = new FormAttachment(0, 0);
     fdTabFolder.top = new FormAttachment(lastControl, margin * 4);
     fdTabFolder.right = new FormAttachment(100, 0);
-    fdTabFolder.bottom = new FormAttachment(wOk, -2 * margin);
+    fdTabFolder.bottom = new FormAttachment(100, -50);
     wTabFolder.setLayoutData(fdTabFolder);
     wTabFolder.setSelection(0);
 
-    // Add listeners
-    wOk.addListener(SWT.Selection, c -> ok());
-    wCancel.addListener(SWT.Selection, c -> cancel());
-    wCreate.addListener(SWT.Selection, c -> sql());
     wGetFields.addListener(SWT.Selection, c -> get());
     wbTable.addListener(SWT.Selection, c -> getTableName());
     wbSchema.addListener(SWT.Selection, c -> getSchemaName());
@@ -307,6 +257,7 @@ public class CrateDBBulkLoaderDialog extends BaseTransformDialog {
 
     input.setChanged(backupChanged);
 
+    buildButtonBar().ok(e -> ok()).sql(e -> sql()).cancel(e -> cancel()).build();
     BaseDialog.defaultShellHandling(shell, c -> ok(), c -> cancel());
     return transformName;
   }
