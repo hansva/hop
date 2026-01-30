@@ -50,6 +50,7 @@ import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.ExpandBar;
@@ -88,6 +89,7 @@ public class ConfigGuiOptionsTab {
   private Button wDarkMode;
   private Button wShowCanvasGrid;
   private Button wHideViewport;
+  private Button wShowProblemsBar;
   private Button wUseDoubleClick;
   private Button wDrawBorderAroundCanvasNames;
   private Button wDisableZoomScrolling;
@@ -158,6 +160,9 @@ public class ConfigGuiOptionsTab {
       wShowCanvasGrid.setSelection(props.isShowCanvasGridEnabled());
 
       wHideViewport.setSelection(!props.isHideViewportEnabled()); // Inverted logic
+      if (wShowProblemsBar != null && !wShowProblemsBar.isDisposed()) {
+        wShowProblemsBar.setSelection(props.isShowProblemsBarEnabled());
+      }
       wUseDoubleClick.setSelection(props.useDoubleClick());
       wDrawBorderAroundCanvasNames.setSelection(props.isBorderDrawnAroundCanvasNames());
       wHideMenuBar.setSelection(props.isHidingMenuBar());
@@ -221,10 +226,10 @@ public class ConfigGuiOptionsTab {
     noteFont = new Font(shell.getDisplay(), noteFontData);
 
     // Track the last control for vertical positioning
-    org.eclipse.swt.widgets.Control lastControl = null;
+    Control lastControl = null;
 
     // Preferred language - at the top
-    org.eclipse.swt.widgets.Control[] defaultLocaleControls =
+    Control[] defaultLocaleControls =
         createComboField(
             wLookComp,
             "EnterOptionsDialog.DefaultLocale.Label",
@@ -283,10 +288,10 @@ public class ConfigGuiOptionsTab {
     appearanceContent.setLayout(appearanceLayout);
 
     // Appearance controls inside the expandable content
-    org.eclipse.swt.widgets.Control lastAppearanceControl = null;
+    Control lastAppearanceControl = null;
 
     // Global zoom (at the top)
-    org.eclipse.swt.widgets.Control[] globalZoomControls =
+    Control[] globalZoomControls =
         createComboField(
             appearanceContent,
             "EnterOptionsDialog.GlobalZoom.Label",
@@ -300,7 +305,7 @@ public class ConfigGuiOptionsTab {
     lastAppearanceControl = wGlobalZoom;
 
     // Icon size
-    org.eclipse.swt.widgets.Control[] iconSizeControls =
+    Control[] iconSizeControls =
         createTextField(
             appearanceContent,
             "EnterOptionsDialog.IconSize.Label",
@@ -323,7 +328,7 @@ public class ConfigGuiOptionsTab {
     lastAppearanceControl = wIconSize;
 
     // Line width
-    org.eclipse.swt.widgets.Control[] lineWidthControls =
+    Control[] lineWidthControls =
         createTextField(
             appearanceContent,
             "EnterOptionsDialog.LineWidth.Label",
@@ -346,7 +351,7 @@ public class ConfigGuiOptionsTab {
     lastAppearanceControl = wLineWidth;
 
     // Dialog middle percentage
-    org.eclipse.swt.widgets.Control[] middlePctControls =
+   Control[] middlePctControls =
         createTextField(
             appearanceContent,
             "EnterOptionsDialog.DialogMiddlePercentage.Label",
@@ -420,10 +425,10 @@ public class ConfigGuiOptionsTab {
     fontsContent.setLayout(fontsLayout);
 
     // Fonts inside the expandable content
-    org.eclipse.swt.widgets.Control lastFontControl = null;
+    Control lastFontControl = null;
 
     // Default font
-    org.eclipse.swt.widgets.Control[] defaultFontControls =
+    Control[] defaultFontControls =
         createFontPicker(
             fontsContent, "EnterOptionsDialog.DefaultFont.Label", shell, lastFontControl, margin);
     wDefaultCanvas = (Canvas) defaultFontControls[0];
@@ -436,7 +441,7 @@ public class ConfigGuiOptionsTab {
     lastFontControl = wDefaultCanvas;
 
     // Fixed width font
-    org.eclipse.swt.widgets.Control[] fixedFontControls =
+    Control[] fixedFontControls =
         createFontPicker(
             fontsContent,
             "EnterOptionsDialog.FixedWidthFont.Label",
@@ -453,7 +458,7 @@ public class ConfigGuiOptionsTab {
     lastFontControl = wFixedCanvas;
 
     // Graph font
-    org.eclipse.swt.widgets.Control[] graphFontControls =
+    Control[] graphFontControls =
         createFontPicker(
             fontsContent, "EnterOptionsDialog.GraphFont.Label", shell, lastFontControl, margin);
     wGraphCanvas = (Canvas) graphFontControls[0];
@@ -466,7 +471,7 @@ public class ConfigGuiOptionsTab {
     lastFontControl = wGraphCanvas;
 
     // Note font
-    org.eclipse.swt.widgets.Control[] noteFontControls =
+    Control[] noteFontControls =
         createFontPicker(
             fontsContent, "EnterOptionsDialog.NoteFont.Label", shell, lastFontControl, margin);
     wNoteCanvas = (Canvas) noteFontControls[0];
@@ -529,7 +534,7 @@ public class ConfigGuiOptionsTab {
     canvasContent.setLayout(canvasLayout);
 
     // Show canvas grid checkbox inside the expandable content
-    org.eclipse.swt.widgets.Control lastCanvasControl = null;
+    Control lastCanvasControl = null;
     wShowCanvasGrid =
         createCheckbox(
             canvasContent,
@@ -541,7 +546,7 @@ public class ConfigGuiOptionsTab {
     lastCanvasControl = wShowCanvasGrid;
 
     // Grid size - placed under Show canvas grid checkbox
-    org.eclipse.swt.widgets.Control[] gridSizeControls =
+    Control[] gridSizeControls =
         createTextField(
             canvasContent,
             "EnterOptionsDialog.GridSize.Label",
@@ -642,6 +647,65 @@ public class ConfigGuiOptionsTab {
 
     lastControl = canvasExpandBar;
 
+    // Experimental section - using ExpandBar
+    ExpandBar experimentalExpandBar = new ExpandBar(wLookComp, SWT.V_SCROLL);
+    PropsUi.setLook(experimentalExpandBar);
+
+    FormData fdExperimentalExpandBar = new FormData();
+    fdExperimentalExpandBar.left = new FormAttachment(0, 0);
+    fdExperimentalExpandBar.right = new FormAttachment(100, 0);
+    fdExperimentalExpandBar.top = new FormAttachment(lastControl, 2 * margin);
+    experimentalExpandBar.setLayoutData(fdExperimentalExpandBar);
+
+    Composite experimentalContent = new Composite(experimentalExpandBar, SWT.NONE);
+    PropsUi.setLook(experimentalContent);
+    FormLayout experimentalLayout = new FormLayout();
+    experimentalLayout.marginWidth = PropsUi.getFormMargin();
+    experimentalLayout.marginHeight = PropsUi.getFormMargin();
+    experimentalContent.setLayout(experimentalLayout);
+
+    Control lastExperimentalControl = null;
+    wShowProblemsBar =
+        createCheckbox(
+            experimentalContent,
+            "EnterOptionsDialog.ShowProblemsBar.Label",
+            "EnterOptionsDialog.ShowProblemsBar.ToolTip",
+            props.isShowProblemsBarEnabled(),
+            lastExperimentalControl,
+            margin);
+
+    ExpandItem experimentalItem = new ExpandItem(experimentalExpandBar, SWT.NONE);
+    experimentalItem.setText(
+        BaseMessages.getString(PKG, "EnterOptionsDialog.Section.Experimental"));
+    experimentalItem.setControl(experimentalContent);
+    experimentalItem.setHeight(experimentalContent.computeSize(SWT.DEFAULT, SWT.DEFAULT).y);
+    experimentalItem.setExpanded(true);
+
+    experimentalExpandBar.addListener(
+        SWT.Expand,
+        e ->
+            Display.getDefault()
+                .asyncExec(
+                    () -> {
+                      if (!wLookComp.isDisposed() && !sLookComp.isDisposed()) {
+                        wLookComp.layout();
+                        sLookComp.setMinHeight(wLookComp.computeSize(SWT.DEFAULT, SWT.DEFAULT).y);
+                      }
+                    }));
+    experimentalExpandBar.addListener(
+        SWT.Collapse,
+        e ->
+            Display.getDefault()
+                .asyncExec(
+                    () -> {
+                      if (!wLookComp.isDisposed() && !sLookComp.isDisposed()) {
+                        wLookComp.layout();
+                        sLookComp.setMinHeight(wLookComp.computeSize(SWT.DEFAULT, SWT.DEFAULT).y);
+                      }
+                    }));
+
+    lastControl = experimentalExpandBar;
+
     // Tables & grids section - using ExpandBar
     ExpandBar tablesExpandBar = new ExpandBar(wLookComp, SWT.V_SCROLL);
     PropsUi.setLook(tablesExpandBar);
@@ -661,7 +725,7 @@ public class ConfigGuiOptionsTab {
     tablesContent.setLayout(tablesLayout);
 
     // Show toolbar checkbox inside the expandable content
-    org.eclipse.swt.widgets.Control lastTablesControl = null;
+    Control lastTablesControl = null;
     wShowTableViewToolbar =
         createCheckbox(
             tablesContent,
@@ -917,6 +981,9 @@ public class ConfigGuiOptionsTab {
     props.setShowCanvasGridEnabled(wShowCanvasGrid.getSelection());
     props.setHideViewportEnabled(
         !wHideViewport.getSelection()); // Inverted: checkbox is "show", property is "hide"
+    if (wShowProblemsBar != null && !wShowProblemsBar.isDisposed()) {
+      props.setShowProblemsBarEnabled(wShowProblemsBar.getSelection());
+    }
     props.setUseDoubleClickOnCanvas(wUseDoubleClick.getSelection());
     props.setDrawBorderAroundCanvasNames(wDrawBorderAroundCanvasNames.getSelection());
     props.setZoomScrollingDisabled(wDisableZoomScrolling.getSelection());
@@ -952,12 +1019,12 @@ public class ConfigGuiOptionsTab {
    * @param margin The margin to use
    * @return An array containing [Label, Text] controls
    */
-  private org.eclipse.swt.widgets.Control[] createTextField(
+  private Control[] createTextField(
       Composite parent,
       String labelKey,
       String tooltipKey,
       String initialValue,
-      org.eclipse.swt.widgets.Control lastControl,
+      Control lastControl,
       int margin) {
     // Label above
     Label label = new Label(parent, SWT.LEFT);
@@ -989,7 +1056,7 @@ public class ConfigGuiOptionsTab {
     fdText.top = new FormAttachment(label, margin / 2);
     text.setLayoutData(fdText);
 
-    return new org.eclipse.swt.widgets.Control[] {label, text};
+    return new Control[] {label, text};
   }
 
   /**
@@ -1003,12 +1070,12 @@ public class ConfigGuiOptionsTab {
    * @param margin The margin to use
    * @return An array containing [Label, Combo] controls
    */
-  private org.eclipse.swt.widgets.Control[] createComboField(
+  private Control[] createComboField(
       Composite parent,
       String labelKey,
       String tooltipKey,
       String[] items,
-      org.eclipse.swt.widgets.Control lastControl,
+      Control lastControl,
       int margin) {
     // Label above
     Label label = new Label(parent, SWT.LEFT);
@@ -1040,7 +1107,7 @@ public class ConfigGuiOptionsTab {
     fdCombo.top = new FormAttachment(label, margin / 2);
     combo.setLayoutData(fdCombo);
 
-    return new org.eclipse.swt.widgets.Control[] {label, combo};
+    return new Control[] {label, combo};
   }
 
   /**
@@ -1059,7 +1126,7 @@ public class ConfigGuiOptionsTab {
       String labelKey,
       String tooltipKey,
       boolean selected,
-      org.eclipse.swt.widgets.Control lastControl,
+      Control lastControl,
       int margin) {
     Button checkbox = new Button(parent, SWT.CHECK);
     PropsUi.setLook(checkbox);
@@ -1093,11 +1160,11 @@ public class ConfigGuiOptionsTab {
    * @param margin The margin to use
    * @return An array containing [Canvas, EditButton, ResetButton] controls
    */
-  private org.eclipse.swt.widgets.Control[] createFontPicker(
+  private Control[] createFontPicker(
       Composite parent,
       String labelKey,
       Shell shell,
-      org.eclipse.swt.widgets.Control lastControl,
+      Control lastControl,
       int margin) {
     int h = (int) (40 * PropsUi.getInstance().getZoomFactor());
 
@@ -1144,6 +1211,6 @@ public class ConfigGuiOptionsTab {
     fdCanvas.height = h;
     canvas.setLayoutData(fdCanvas);
 
-    return new org.eclipse.swt.widgets.Control[] {canvas, editButton, resetButton};
+    return new Control[] {canvas, editButton, resetButton};
   }
 }

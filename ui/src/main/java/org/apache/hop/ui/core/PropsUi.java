@@ -83,6 +83,7 @@ public class PropsUi extends Props {
   private static final String GRAPH_EXTRA_VIEW_VERTICAL_ORIENTATION =
       "GraphExtraViewVerticalOrientation";
   private static final String DISABLE_ZOOM_SCROLLING = "DisableZoomScrolling";
+  private static final String SHOW_PROBLEMS_BAR = "ShowProblemsBar";
 
   public static final int DEFAULT_MAX_EXECUTION_LOGGING_TEXT_SIZE = 2000000;
   private Map<RGB, RGB> contrastingColors;
@@ -472,6 +473,15 @@ public class PropsUi extends Props {
 
   public void setHideViewportEnabled(boolean anti) {
     setProperty(STRING_HIDE_VIEWPORT, anti ? YES : NO);
+  }
+
+  /** Show the problems bar (errors/warnings/comments) in the top-right of the pipeline canvas. Default: off. */
+  public boolean isShowProblemsBarEnabled() {
+    return YES.equalsIgnoreCase(getProperty(SHOW_PROBLEMS_BAR, NO));
+  }
+
+  public void setShowProblemsBarEnabled(boolean show) {
+    setProperty(SHOW_PROBLEMS_BAR, show ? YES : NO);
   }
 
   public boolean showExitWarning() {

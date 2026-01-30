@@ -201,10 +201,12 @@ import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormData;
 import org.eclipse.swt.layout.FormLayout;
+import org.eclipse.swt.layout.RowLayout;
 import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.MenuItem;
@@ -261,6 +263,10 @@ public class HopGuiPipelineGraph extends HopGuiAbstractGraph
 
   public static final String TOOLBAR_ITEM_TO_EXECUTION_INFO =
       "HopGuiPipelineGraph-ToolBar-10475-ToExecutionInfo";
+
+  private static final int PROBLEMS_BAR_WIDTH = 140;
+  private static final int PROBLEMS_BAR_MARGIN = 8;
+  private static final int PROBLEMS_BAR_HEIGHT = 28;
 
   public static final String ACTION_ID_PIPELINE_GRAPH_HOP_ENABLE =
       "pipeline-graph-hop-10010-hop-enable";
@@ -350,6 +356,14 @@ public class HopGuiPipelineGraph extends HopGuiAbstractGraph
 
   private final SashForm sashForm;
 
+  /** Problems bar composite in top-right of canvas viewer (FormData over the graph area). */
+  private Composite problemsStatusBarComposite;
+
+  private Label problemsErrorCountLabel;
+  private Label problemsWarningCountLabel;
+  private Label problemsCommentCountLabel;
+  private boolean problemsBarHovered;
+
   public CTabFolder extraViewTabFolder;
 
   private boolean initialized;
@@ -390,6 +404,11 @@ public class HopGuiPipelineGraph extends HopGuiAbstractGraph
   private StreamType candidateHopType;
 
   Timer redrawTimer;
+
+  /** Coalesces runCheckInBackground when setChanged is called repeatedly. */
+  private int deferredCheckGeneration;
+
+  private static final int DEFERRED_CHECK_DELAY_MS = 500;
 
   @Setter private HopPipelineFileType<PipelineMeta> fileType;
   private boolean doubleClick;
@@ -520,6 +539,11 @@ public class HopGuiPipelineGraph extends HopGuiAbstractGraph
     canvas.setLayoutData(fdCanvas);
 
     sashForm.setWeights(100);
+
+    // Problems bar as a widget in the top-right of the canvas (when enabled in Look and Feel > Experimental)
+    if (PropsUi.getInstance().isShowProblemsBarEnabled()) {
+      addFloatingProblemsBar(canvas);
+    }
 
     toolTip = new HopToolTip(getShell());
     toolTip.setAutoHide(true);
@@ -2100,17 +2124,14 @@ public class HopGuiPipelineGraph extends HopGuiAbstractGraph
 
   private void addToolBar() {
     try {
-      // Create a new toolbar at the top of the main composite...
-      //
       toolBar = new ToolBar(this, SWT.WRAP | SWT.LEFT | SWT.HORIZONTAL);
+      FormData toolBarFd = new FormData();
+      toolBarFd.left = new FormAttachment(0, 0);
+      toolBarFd.top = new FormAttachment(0, 0);
+      toolBar.setLayoutData(toolBarFd);
       toolBarWidgets = new GuiToolbarWidgets();
       toolBarWidgets.registerGuiPluginObject(this);
       toolBarWidgets.createToolbarWidgets(toolBar, GUI_PLUGIN_TOOLBAR_PARENT_ID);
-      FormData layoutData = new FormData();
-      layoutData.left = new FormAttachment(0, 0);
-      layoutData.top = new FormAttachment(0, 0);
-      layoutData.right = new FormAttachment(100, 0);
-      toolBar.setLayoutData(layoutData);
       toolBar.pack();
       PropsUi.setLook(toolBar, Props.WIDGET_STYLE_TOOLBAR);
 
@@ -2126,6 +2147,192 @@ public class HopGuiPipelineGraph extends HopGuiAbstractGraph
           "Error setting up the navigation toolbar for HopGUI",
           new Exception(t));
     }
+  }
+
+  /**
+   * Adds the problems bar as a composite with FormData in the top-right of the canvas. Parent must
+   * be the canvas so the bar is positioned relative to the canvas (stays clear of sidebar when
+   * extra view is open), like the viewport.
+   */
+  private void addFloatingProblemsBar(Canvas canvasParent) {
+    if (canvasParent.getLayout() == null) {
+      canvasParent.setLayout(new FormLayout());
+    }
+    // In Hop Web (RAP), NO_BACKGROUND does not give transparency; use graph background instead
+    GuiResource guiResource = GuiResource.getInstance();
+    int compositeStyle = EnvironmentUtils.getInstance().isWeb() ? SWT.NONE : SWT.NO_BACKGROUND;
+    problemsStatusBarComposite = new Composite(canvasParent, compositeStyle);
+    if (EnvironmentUtils.getInstance().isWeb()) {
+      problemsStatusBarComposite.setBackground(guiResource.getColorGraph());
+    }
+    FormData fd = new FormData();
+    fd.right = new FormAttachment(100, -PROBLEMS_BAR_MARGIN);
+    fd.top = new FormAttachment(0, PROBLEMS_BAR_MARGIN);
+    fd.left = new FormAttachment(100, -PROBLEMS_BAR_WIDTH - PROBLEMS_BAR_MARGIN);
+    fd.bottom = new FormAttachment(0, PROBLEMS_BAR_MARGIN + PROBLEMS_BAR_HEIGHT);
+    problemsStatusBarComposite.setLayoutData(fd);
+    addProblemsStatusBar();
+  }
+
+  /**
+   * Fills the problems bar composite with icon + count for errors, warnings, comments. Click runs
+   * validation and shows the Problems tab.
+   */
+  private void addProblemsStatusBar() {
+    RowLayout rowLayout = new RowLayout(SWT.HORIZONTAL);
+    rowLayout.marginLeft = 6;
+    rowLayout.marginRight = 6;
+    rowLayout.marginTop = 4;
+    rowLayout.marginBottom = 4;
+    rowLayout.spacing = 8;
+    problemsStatusBarComposite.setLayout(rowLayout);
+    // No setLook: keep composite transparent (NO_BACKGROUND) so canvas shows through; in web we set
+    // graph background in addFloatingProblemsBar
+
+    GuiResource guiResource = GuiResource.getInstance();
+    boolean isWeb = EnvironmentUtils.getInstance().isWeb();
+    int labelStyle = isWeb ? SWT.NONE : SWT.NO_BACKGROUND;
+    org.eclipse.swt.graphics.Color graphBg = isWeb ? guiResource.getColorGraph() : null;
+
+    // Hover highlight to indicate it is clickable (button-like) - desktop only (RAP has no
+    // addPaintListener on Composite)
+    MouseTrackListener problemsBarHoverListener = null;
+    if (!isWeb) {
+      problemsStatusBarComposite.addPaintListener(
+          e -> {
+            if (problemsBarHovered) {
+              e.gc.setBackground(guiResource.getColorLightGray());
+              e.gc.fillRectangle(0, 0, e.width, e.height);
+            }
+          });
+      problemsBarHoverListener =
+          new MouseTrackListener() {
+            @Override
+            public void mouseEnter(MouseEvent e) {
+              problemsBarHovered = true;
+              problemsStatusBarComposite.redraw();
+            }
+
+            @Override
+            public void mouseExit(MouseEvent e) {
+              problemsBarHovered = false;
+              problemsStatusBarComposite.redraw();
+            }
+
+            @Override
+            public void mouseHover(MouseEvent e) {}
+          };
+      problemsStatusBarComposite.addMouseTrackListener(problemsBarHoverListener);
+    }
+
+    Label errorIcon = new Label(problemsStatusBarComposite, labelStyle);
+    if (graphBg != null) {
+      errorIcon.setBackground(graphBg);
+    }
+    if (problemsBarHoverListener != null) {
+      errorIcon.addMouseTrackListener(problemsBarHoverListener);
+    }
+    errorIcon.setImage(guiResource.getImageError());
+    errorIcon.setToolTipText(
+        BaseMessages.getString(PKG, "PipelineGraph.ProblemsStatusBar.Error.Tooltip"));
+    problemsErrorCountLabel = new Label(problemsStatusBarComposite, labelStyle);
+    if (graphBg != null) {
+      problemsErrorCountLabel.setBackground(graphBg);
+    }
+    problemsErrorCountLabel.setText("0");
+    if (problemsBarHoverListener != null) {
+      problemsErrorCountLabel.addMouseTrackListener(problemsBarHoverListener);
+    }
+
+    Label warningIcon = new Label(problemsStatusBarComposite, labelStyle);
+    if (graphBg != null) {
+      warningIcon.setBackground(graphBg);
+    }
+    warningIcon.setImage(guiResource.getImageWarning());
+    warningIcon.setToolTipText(
+        BaseMessages.getString(PKG, "PipelineGraph.ProblemsStatusBar.Warning.Tooltip"));
+    if (problemsBarHoverListener != null) {
+      warningIcon.addMouseTrackListener(problemsBarHoverListener);
+    }
+    problemsWarningCountLabel = new Label(problemsStatusBarComposite, labelStyle);
+    if (graphBg != null) {
+      problemsWarningCountLabel.setBackground(graphBg);
+    }
+    problemsWarningCountLabel.setText("0");
+    if (problemsBarHoverListener != null) {
+      problemsWarningCountLabel.addMouseTrackListener(problemsBarHoverListener);
+    }
+
+    Label commentIcon = new Label(problemsStatusBarComposite, labelStyle);
+    if (graphBg != null) {
+      commentIcon.setBackground(graphBg);
+    }
+    commentIcon.setImage(guiResource.getImageInfo());
+    commentIcon.setToolTipText(
+        BaseMessages.getString(PKG, "PipelineGraph.ProblemsStatusBar.Comment.Tooltip"));
+    if (problemsBarHoverListener != null) {
+      commentIcon.addMouseTrackListener(problemsBarHoverListener);
+    }
+    problemsCommentCountLabel = new Label(problemsStatusBarComposite, labelStyle);
+    if (graphBg != null) {
+      problemsCommentCountLabel.setBackground(graphBg);
+    }
+    problemsCommentCountLabel.setText("0");
+    if (problemsBarHoverListener != null) {
+      problemsCommentCountLabel.addMouseTrackListener(problemsBarHoverListener);
+    }
+
+    Listener problemsBarListener =
+        e -> {
+          if (e.type == SWT.MouseDown) {
+            checkPipeline();
+          }
+        };
+    problemsStatusBarComposite.addListener(SWT.MouseDown, problemsBarListener);
+    errorIcon.addListener(SWT.MouseDown, problemsBarListener);
+    problemsErrorCountLabel.addListener(SWT.MouseDown, problemsBarListener);
+    warningIcon.addListener(SWT.MouseDown, problemsBarListener);
+    problemsWarningCountLabel.addListener(SWT.MouseDown, problemsBarListener);
+    commentIcon.addListener(SWT.MouseDown, problemsBarListener);
+    problemsCommentCountLabel.addListener(SWT.MouseDown, problemsBarListener);
+
+    problemsStatusBarComposite.pack();
+  }
+
+  /**
+   * Refreshes the problems bar labels from the current remarks. Call after running a pipeline
+   * check.
+   */
+  public void refreshProblemsStatusBar() {
+    if (problemsErrorCountLabel == null
+        || problemsErrorCountLabel.isDisposed()
+        || problemsStatusBarComposite == null
+        || problemsStatusBarComposite.isDisposed()) {
+      return;
+    }
+    int errors = 0;
+    int warnings = 0;
+    int comments = 0;
+    if (remarks != null) {
+      for (ICheckResult cr : remarks) {
+        switch (cr.getType()) {
+          case ICheckResult.TYPE_RESULT_ERROR:
+            errors++;
+            break;
+          case ICheckResult.TYPE_RESULT_WARNING:
+            warnings++;
+            break;
+          case ICheckResult.TYPE_RESULT_COMMENT:
+            comments++;
+            break;
+          default:
+            break;
+        }
+      }
+    }
+    problemsErrorCountLabel.setText(String.valueOf(errors));
+    problemsWarningCountLabel.setText(String.valueOf(warnings));
+    problemsCommentCountLabel.setText(String.valueOf(comments));
   }
 
   @Override
@@ -3907,6 +4114,26 @@ public class HopGuiPipelineGraph extends HopGuiAbstractGraph
     pipelineMeta.setChanged();
   }
 
+  /**
+   * Schedules a background pipeline check after a short delay. Multiple setChanged() calls within
+   * the delay coalesce into a single check.
+   */
+  private void scheduleDeferredCheck() {
+    if (pipelineCheckDelegate == null) {
+      return;
+    }
+    deferredCheckGeneration++;
+    final int runGeneration = deferredCheckGeneration;
+    hopDisplay()
+        .timerExec(
+            DEFERRED_CHECK_DELAY_MS,
+            () -> {
+              if (runGeneration == deferredCheckGeneration && !isDisposed()) {
+                pipelineCheckDelegate.runCheckInBackground();
+              }
+            });
+  }
+
   @Override
   public synchronized void save() throws HopException {
     try {
@@ -5314,6 +5541,8 @@ public class HopGuiPipelineGraph extends HopGuiAbstractGraph
               perspective.updateTreeItem(this);
 
               HopGuiPipelineGraph.super.redraw();
+
+              scheduleDeferredCheck();
             });
   }
 

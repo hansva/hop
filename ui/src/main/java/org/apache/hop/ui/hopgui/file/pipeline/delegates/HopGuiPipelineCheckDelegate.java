@@ -26,6 +26,7 @@ import lombok.Getter;
 import org.apache.hop.core.ICheckResult;
 import org.apache.hop.core.ICheckResultSource;
 import org.apache.hop.core.IProgressMonitor;
+import org.apache.hop.core.ProgressNullMonitorListener;
 import org.apache.hop.core.Props;
 import org.apache.hop.core.gui.plugin.GuiPlugin;
 import org.apache.hop.core.gui.plugin.toolbar.GuiToolbarElement;
@@ -41,6 +42,7 @@ import org.apache.hop.ui.core.gui.GuiToolbarWidgets;
 import org.apache.hop.ui.hopgui.HopGui;
 import org.apache.hop.ui.hopgui.file.IHopFileTypeHandler;
 import org.apache.hop.ui.hopgui.file.pipeline.HopGuiPipelineGraph;
+import org.apache.hop.ui.util.EnvironmentUtils;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.CTabItem;
 import org.eclipse.swt.graphics.Image;
@@ -175,8 +177,70 @@ public class HopGuiPipelineCheckDelegate {
     wTree.setRedraw(true);
   }
 
+  /**
+   * Runs the pipeline check in the background (no progress dialog). Updates the problems status bar
+   * and the Problems tab tree on the UI thread when done. Use this when the pipeline has changed
+   * and we want to refresh problem counts without blocking the user.
+   */
+  public void runCheckInBackground() {
+    PipelineMeta pipelineMeta = pipelineGraph.getPipelineMeta();
+    org.eclipse.swt.widgets.Display display = pipelineGraph.getDisplay();
+    new Thread(
+            () -> {
+              try {
+                final List<ICheckResult> remarks = new ArrayList<>();
+                pipelineMeta.checkTransforms(
+                    remarks,
+                    false,
+                    new ProgressNullMonitorListener(),
+                    pipelineGraph.getVariables(),
+                    hopGui.getMetadataProvider());
+                display.asyncExec(
+                    () -> {
+                      if (pipelineGraph.isDisposed()) {
+                        return;
+                      }
+                      pipelineGraph.setRemarks(remarks);
+                      pipelineGraph.refreshProblemsStatusBar();
+                      if (pipelineCheckTab != null
+                          && !pipelineCheckTab.isDisposed()
+                          && wTree != null
+                          && !wTree.isDisposed()) {
+                        refresh(remarks);
+                      }
+                    });
+              } catch (Throwable t) {
+                display.asyncExec(
+                    () -> {
+                      if (!pipelineGraph.isDisposed()) {
+                        logError(t);
+                      }
+                    });
+              }
+            })
+        .start();
+  }
+
+  private void logError(Throwable t) {
+    org.apache.hop.core.logging.LogChannel.GENERAL.logError(
+        "Error running pipeline check in background", t);
+  }
+
   public void checkPipeline() {
     try {
+      // In Hop Web (RAP), ProgressMonitorDialog can hang when the panel is already open.
+      // Use background check without progress dialog.
+      //
+      if (EnvironmentUtils.getInstance().isWeb()) {
+        if (pipelineGraph.extraViewTabFolder != null
+            && !pipelineGraph.extraViewTabFolder.isDisposed()
+            && pipelineCheckTab != null) {
+          pipelineGraph.extraViewTabFolder.setSelection(pipelineCheckTab);
+        }
+        runCheckInBackground();
+        return;
+      }
+
       final List<ICheckResult> remarks = new ArrayList<>();
 
       // Activate folder tab
@@ -231,9 +295,11 @@ public class HopGuiPipelineCheckDelegate {
             }
           });
 
-      // Update checks results
+      // Update checks results and the problems status bar in the top-right of the graph
       //
       this.refresh(remarks);
+      pipelineGraph.setRemarks(remarks);
+      pipelineGraph.refreshProblemsStatusBar();
 
     } catch (Exception e) {
       new ErrorDialog(
