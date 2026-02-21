@@ -124,7 +124,10 @@ public class HopWeb implements ApplicationConfiguration {
             return new ByteArrayInputStream(outputStream.toByteArray());
           }
         });
-    Stream.of("org/apache/hop/ui/hopgui/clipboard.js", "org/apache/hop/ui/hopgui/canvas-zoom.js")
+    Stream.of(
+            "org/apache/hop/ui/hopgui/clipboard.js",
+            "org/apache/hop/ui/hopgui/canvas-zoom.js",
+            "org/apache/hop/ui/hopgui/monaco-editor.js")
         .forEach(
             str ->
                 application.addResource(
@@ -135,6 +138,8 @@ public class HopWeb implements ApplicationConfiguration {
                         return this.getClass().getClassLoader().getResourceAsStream(str);
                       }
                     }));
+
+    registerMonacoResources(application);
 
     // Only 2 choices for now
     //
@@ -165,6 +170,38 @@ public class HopWeb implements ApplicationConfiguration {
     LogChannel.UI.logBasic("HOP_CONFIG_FOLDER: " + Const.HOP_CONFIG_FOLDER);
     LogChannel.UI.logBasic("HOP_AUDIT_FOLDER: " + Const.HOP_AUDIT_FOLDER);
     LogChannel.UI.logBasic("HOP_GUI_ZOOM_FACTOR: " + System.getProperty("HOP_GUI_ZOOM_FACTOR"));
+  }
+
+  /**
+   * Registers all bundled Monaco Editor files as RAP application resources so the editor works in
+   * offline environments without needing a CDN.
+   */
+  private void registerMonacoResources(Application application) {
+    String manifestPath = "org/apache/hop/ui/hopgui/monaco/monaco-files.list";
+    ClassLoader cl = HopWeb.class.getClassLoader();
+    try (InputStream is = cl.getResourceAsStream(manifestPath);
+        BufferedReader reader =
+            new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
+      String line;
+      while ((line = reader.readLine()) != null) {
+        String trimmed = line.trim();
+        if (trimmed.isEmpty()) {
+          continue;
+        }
+        final String classpathResource = "org/apache/hop/ui/hopgui/monaco/" + trimmed;
+        String resourceName = "monaco/" + trimmed;
+        application.addResource(
+            resourceName,
+            new ResourceLoader() {
+              @Override
+              public InputStream getResourceAsStream(String name) {
+                return HopWeb.class.getClassLoader().getResourceAsStream(classpathResource);
+              }
+            });
+      }
+    } catch (Exception e) {
+      LogChannel.UI.logError("Failed to register Monaco editor resources", e);
+    }
   }
 
   private void addResource(

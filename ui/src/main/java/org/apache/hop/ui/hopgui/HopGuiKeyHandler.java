@@ -38,6 +38,7 @@ import org.eclipse.swt.events.KeyEvent;
 import org.eclipse.swt.widgets.Combo;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Text;
+import org.eclipse.swt.widgets.Widget;
 
 public class HopGuiKeyHandler extends KeyAdapter {
 
@@ -47,9 +48,6 @@ public class HopGuiKeyHandler extends KeyAdapter {
 
   /** Parent -> Control (e.g. shell) so we try that parent when focus is in its window. */
   private final Map<Object, Control> parentToControl = new HashMap<>();
-
-  private KeyboardShortcut lastShortcut;
-  private long lastShortcutTime;
 
   private HopGuiKeyHandler() {
     this.parentObjects = new HashSet<>();
@@ -85,11 +83,17 @@ public class HopGuiKeyHandler extends KeyAdapter {
       return;
     }
 
-    // Ignore shortcuts inside Text, Combo, or StyledText widgets (including terminal)
-    if (event.widget instanceof Text
-        || event.widget instanceof Combo
-        || event.widget instanceof CCombo
-        || event.widget instanceof org.eclipse.swt.custom.StyledText) {
+    // Ignore shortcuts inside Text, Combo, or StyledText widgets (including terminal).
+    // Use class name for StyledText so RAP (Hop Web) does not load
+    // org.eclipse.swt.custom.StyledText,
+    // which is not available in RAP.
+    Widget w = event.widget;
+    boolean inTextLike =
+        w instanceof Text
+            || w instanceof Combo
+            || w instanceof CCombo
+            || (w != null && "org.eclipse.swt.custom.StyledText".equals(w.getClass().getName()));
+    if (inTextLike) {
       // Ignore Copy/Cut/Paste/Select all - check both keyCode and character
       if ((event.stateMask & (SWT.CONTROL + SWT.COMMAND)) != 0) {
         char key = Character.toLowerCase((char) event.keyCode);

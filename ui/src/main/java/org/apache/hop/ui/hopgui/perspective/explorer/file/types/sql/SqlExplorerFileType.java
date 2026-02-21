@@ -3,8 +3,8 @@
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * (the "License"); you may not use it except in compliance with the License.
+ * You may obtain a copy of the License at
  *
  *       http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.hop.pipeline.transforms.xml.types;
+package org.apache.hop.ui.hopgui.perspective.explorer.file.types.sql;
 
 import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.variables.IVariables;
@@ -30,18 +30,18 @@ import org.apache.hop.ui.hopgui.perspective.explorer.file.capabilities.FileTypeC
 import org.apache.hop.ui.hopgui.perspective.explorer.file.types.text.BaseTextExplorerFileType;
 
 @HopFileTypePlugin(
-    id = "XmlExplorerFileType",
-    name = "XML File Type",
-    description = "XML file handling in the explorer perspective",
-    image = "add_xml.svg")
-public class XmlExplorerFileType extends BaseTextExplorerFileType<XmlExplorerFileTypeHandler> {
+    id = "SqlExplorerFileType",
+    name = "SQL File Type",
+    description = "SQL file handling in the explorer perspective",
+    image = "ui/images/file.svg")
+public class SqlExplorerFileType extends BaseTextExplorerFileType<SqlExplorerFileTypeHandler> {
 
-  public XmlExplorerFileType() {
+  public SqlExplorerFileType() {
     super(
-        "XML file",
-        ".xml",
-        new String[] {"*.xml"},
-        new String[] {"XML files"},
+        "SQL File",
+        ".sql",
+        new String[] {"*.sql"},
+        new String[] {"SQL files"},
         FileTypeCapabilities.getCapabilities(
             IHopFileType.CAPABILITY_SAVE,
             IHopFileType.CAPABILITY_SAVE_AS,
@@ -52,14 +52,14 @@ public class XmlExplorerFileType extends BaseTextExplorerFileType<XmlExplorerFil
   }
 
   @Override
-  public IHopFileTypeHandler newFile(HopGui hopGui, IVariables parentVariableSpace)
-      throws HopException {
-    return new EmptyHopFileTypeHandler();
+  public SqlExplorerFileTypeHandler createFileTypeHandler(
+      HopGui hopGui, ExplorerPerspective perspective, ExplorerFile file) {
+    return new SqlExplorerFileTypeHandler(hopGui, perspective, file);
   }
 
   @Override
-  public XmlExplorerFileTypeHandler createFileTypeHandler(
-      HopGui hopGui, ExplorerPerspective perspective, ExplorerFile file) {
-    return new XmlExplorerFileTypeHandler(hopGui, perspective, file);
+  public IHopFileTypeHandler newFile(HopGui hopGui, IVariables parentVariableSpace)
+      throws HopException {
+    return new EmptyHopFileTypeHandler();
   }
 }

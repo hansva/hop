@@ -47,9 +47,10 @@ public class HopWebEntryPoint extends AbstractEntryPoint {
     ResourceManager resourceManager = RWT.getResourceManager();
     JavaScriptLoader jsLoader = RWT.getClient().getService(JavaScriptLoader.class);
 
-    // Load canvas zoom handler
+    // Load canvas zoom handler and Monaco editor client script
     String jsLocation = resourceManager.getLocation("js/canvas-zoom.js");
     jsLoader.require(jsLocation);
+    jsLoader.require(resourceManager.getLocation("js/monaco-editor.js"));
 
     // Configure keyboard shortcuts for RAP dynamically from annotations
     // ACTIVE_KEYS tells RAP to send these key combinations to the server
