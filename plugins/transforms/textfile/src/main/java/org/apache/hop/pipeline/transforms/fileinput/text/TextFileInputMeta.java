@@ -639,16 +639,30 @@ public class TextFileInputMeta
           type = IValueMeta.TYPE_STRING;
         }
 
-        String[] filePathList =
-            FileInputList.createFilePathList(
+        FileInputList fileInputList =
+            FileInputList.createFileList(
                 variables,
                 inputFiles.fileName,
                 inputFiles.fileMask,
                 inputFiles.excludeFileMask,
                 inputFiles.fileRequired,
                 inputFiles.includeSubFolderBoolean());
-
-        String fileNameToPrepend = filePathList.length > 0 ? filePathList[0] : null;
+        String fileNameToPrepend = null;
+        if (fileInputList.nrOfFiles() > 0) {
+          fileNameToPrepend = fileInputList.getFile(0).getName().getURI();
+        } else if (!fileInputList.getNonExistentFiles().isEmpty()) {
+          fileNameToPrepend = fileInputList.getNonExistentFiles().get(0).getName().getURI();
+        }
+        // When file list is empty (e.g. not required and missing), use fictional path for prepend
+        if (content.prependFileName
+            && fileNameToPrepend == null
+            && inputFiles.fileName != null
+            && inputFiles.fileName.length > 0) {
+          String firstPath = variables.resolve(inputFiles.fileName[0]);
+          if (!Utils.isEmpty(firstPath)) {
+            fileNameToPrepend = firstPath;
+          }
+        }
 
         try {
           String fieldname =
