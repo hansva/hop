@@ -24,6 +24,7 @@ import org.apache.hop.ui.hopgui.context.IActionContextHandlersProvider;
 import org.apache.hop.ui.hopgui.file.IHopFileType;
 import org.apache.hop.ui.hopgui.file.IHopFileTypeHandler;
 import org.apache.hop.ui.hopgui.file.empty.EmptyHopFileTypeHandler;
+import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 
@@ -126,5 +127,28 @@ public interface IHopPerspective extends IActionContextHandlersProvider {
    */
   default List<ISearchable> getSearchables() {
     return List.of();
+  }
+
+  /**
+   * Called after a tab has been moved between two CTabFolders via drag-and-drop. Perspectives that
+   * support split editor panes can override this to handle cleanup (e.g. auto-unsplit when a pane
+   * becomes empty).
+   *
+   * @param sourceFolder the folder the tab was moved from
+   * @param targetFolder the folder the tab was moved to
+   */
+  default void onTabMovedBetweenFolders(CTabFolder sourceFolder, CTabFolder targetFolder) {
+    // no-op by default
+  }
+
+  /**
+   * Set the target folder that should receive new tabs (e.g. from a file drop). Called by
+   * TabItemReorder before opening dropped files so that split-pane perspectives open files in the
+   * pane the user dropped onto.
+   *
+   * @param folder the folder that received the drop
+   */
+  default void setDropTargetFolder(CTabFolder folder) {
+    // no-op by default
   }
 }
