@@ -157,8 +157,8 @@
         <set-highest-basedir-phase>initialize</set-highest-basedir-phase>
         <site-repo-url>scpexe://people.apache.org/www/hop.apache.org/maven/</site-repo-url>
         <sonar-maven-plugin.version>5.5.0.6356</sonar-maven-plugin.version>
-        <target.jdk.version>21</target.jdk.version>
         <spotless.skip>false</spotless.skip>
+        <target.jdk.version>21</target.jdk.version>
     </properties>
 
     <dependencyManagement>
@@ -540,12 +540,12 @@
         <profile>
             <id>fast-build</id>
             <properties>
-                <skipTests>true</skipTests>
-                <maven.javadoc.skip>true</maven.javadoc.skip>
-                <spotless.skip>true</spotless.skip>
                 <checkstyle.skip>true</checkstyle.skip>
-                <rat.skip>true</rat.skip>
                 <jacoco.skip>true</jacoco.skip>
+                <maven.javadoc.skip>true</maven.javadoc.skip>
+                <rat.skip>true</rat.skip>
+                <skipTests>true</skipTests>
+                <spotless.skip>true</spotless.skip>
             </properties>
         </profile>
         <profile>
