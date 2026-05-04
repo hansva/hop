@@ -143,7 +143,10 @@ The table below describes each of the options for configuring the field properti
 Note: Trimming only works when there is no field length given. 
 |Null|Specify a value to insert in the field if the field value is null.
 |Get Fields|Click to retrieve the list of fields from the input fields stream(s).
-|Rounding Type| When writing numbers to a file you can specify the Rounding type being used by default `Half Even` is used, for more information look at the Rounding Types section
+|Rounding Type a| When writing numbers to a file you can specify the Rounding type being used by default `Half Even` is used, for more information look at the Rounding Types section.
+
+TIP: A number format is required with the rounding types in Text File Output.
+
 |Minimal width|Alter the options in the fields tab in such a way that the resulting width of lines in the text file is minimal.
 
 So instead of a string value being 0000001, we write 1, etc.
