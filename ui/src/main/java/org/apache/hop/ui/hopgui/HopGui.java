@@ -447,7 +447,11 @@ public class HopGui
 
   /** Build the shell */
   protected void open() {
-    shell.setImage(GuiResource.getInstance().getImageHopUiTaskbar());
+    // Hand Windows a multi-resolution icon set so it can pick the right size for each slot
+    // (title bar, taskbar, alt-tab, jump-list). Passing only one 16x16 image left Windows
+    // scaling up to 64x64 for the taskbar, which sometimes worked and sometimes fell back
+    // to a generic icon depending on DPI and the icon cache state.
+    shell.setImages(GuiResource.getInstance().getImagesHopUiTaskbar());
 
     /*
      * On macOs the image gets loaded too soon, add a listener to set the image when the shell is
