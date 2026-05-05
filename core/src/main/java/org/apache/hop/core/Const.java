@@ -401,6 +401,30 @@ public class Const {
 
   public static final String INTERNAL_VARIABLE_ACTION_ID = INTERNAL_VARIABLE_PREFIX + ".Action.ID";
 
+  /** The Hop server name as configured in hop-server.xml */
+  public static final String INTERNAL_VARIABLE_HOP_SERVER_NAME =
+      INTERNAL_VARIABLE_PREFIX + ".Server.Name";
+
+  /** The Hop server hostname */
+  public static final String INTERNAL_VARIABLE_HOP_SERVER_HOSTNAME =
+      INTERNAL_VARIABLE_PREFIX + ".Server.Hostname";
+
+  /** The Hop server HTTP port */
+  public static final String INTERNAL_VARIABLE_HOP_SERVER_PORT =
+      INTERNAL_VARIABLE_PREFIX + ".Server.Port";
+
+  /** The Hop server web application name */
+  public static final String INTERNAL_VARIABLE_HOP_SERVER_WEB_APP_NAME =
+      INTERNAL_VARIABLE_PREFIX + ".Server.WebAppName";
+
+  /** The Hop server username */
+  public static final String INTERNAL_VARIABLE_HOP_SERVER_USERNAME =
+      INTERNAL_VARIABLE_PREFIX + ".Server.Username";
+
+  /** Whether the Hop server is running in SSL mode */
+  public static final String INTERNAL_VARIABLE_HOP_SERVER_SSL_MODE =
+      INTERNAL_VARIABLE_PREFIX + ".Server.SslMode";
+
   /** The default maximum for the nr of lines in the GUI logs */
   public static final int MAX_NR_LOG_LINES = 5000;
 

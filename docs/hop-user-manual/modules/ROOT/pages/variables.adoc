@@ -364,3 +364,18 @@ Additionally, the following environment variables can help you to add even more 
 |${Internal.Transform.BundleNr} |N |The bundle number for partitioned execution, helpful in load-balancing or distributing data across partitions.
 |${Internal.Action.ID} |N |The unique ID of the current action (entry) in a workflow. Useful for tracking specific actions within a larger workflow.
 |===
+
+=== Hop server internal variables
+
+The variables below are only set when a pipeline or workflow is executed on a Hop server. They are populated from the `hop-server.xml` configuration file at server startup and inherited by every pipeline and workflow that runs on that server, so you can reference the server's own coordinates from within your pipelines and workflows (for example to build callback URLs or to log the server that processed a request).
+
+[%header, width="90%", cols="2,1,5"]
+|===
+|Variable |Default |Description
+|${Internal.Server.Name} |N |The name of the Hop server as configured in `hop-server.xml` (the `<name>` element of the `hop-server` definition).
+|${Internal.Server.Hostname} |N |The hostname the Hop server is bound to, as configured in `hop-server.xml`. If a `network_interface` was configured, this is the resolved IP address for that interface.
+|${Internal.Server.Port} |N |The HTTP port the Hop server is listening on. This is the actual port the server bound to, which may differ from the value in `hop-server.xml` when the server was started with command-line overrides.
+|${Internal.Server.WebAppName} |N |The web application name (context path) the Hop server is exposed under, as configured in `hop-server.xml`. Empty when no web app name was set.
+|${Internal.Server.Username} |N |The username configured for the Hop server in `hop-server.xml`. Empty when authentication is not configured.
+|${Internal.Server.SslMode} |N |`true` when the Hop server is configured to use SSL/TLS, `false` otherwise.
+|===
