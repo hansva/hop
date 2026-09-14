@@ -26,6 +26,11 @@ The local run configuration runs workflows on your local environment.
 
 This page describes the options that are specific to the local workflow engine. These options extend the general  xref:workflow/workflow-run-configurations/workflow-run-configurations.adoc[workflow run configuration options].
 
+// DUMMY: deliberately broken references to exercise the Antora docs check.
+See also xref:workflow/workflow-run-configurations/this-page-does-not-exist.adoc[a page that does not exist].
+
+include::partial$this-partial-does-not-exist.adoc[]
+
 === Options
 
 [options="header"]
