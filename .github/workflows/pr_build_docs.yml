@@ -96,7 +96,10 @@ jobs:
       # pull request that is the merge commit of the PR onto main. Warnings are
       # logged so authors can see them; only errors (unresolved xrefs, missing
       # includes, malformed tables, ...) fail the build.
+      # shell: bash is not the default: the default is `bash -e {0}` without
+      # pipefail, which would let the `tee` below swallow Antora's exit code.
       - name: Build the manuals
+        shell: bash
         working-directory: hop-website
         run: |
           node tools/sync-tokens.mjs
@@ -124,7 +127,7 @@ jobs:
             const at = e.file && e.file.line ? e.file.line : ''
             rows.push({ level: e.level, file, at, msg: e.msg })
             if (e.level === 'error' || e.level === 'fatal') {
-              const where = file ? `file=${file},line=${at || 1},` : ''
+              const where = file ? `file=${file},${at ? `line=${at},` : ''}` : ''
               console.log(`::error ${where}title=Antora::${e.msg}`)
             }
           }
