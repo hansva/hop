@@ -18,6 +18,7 @@
 package org.apache.hop.pipeline.transforms.fileinput.text;
 
 import java.io.BufferedInputStream;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import org.apache.commons.vfs2.FileObject;
 import org.apache.hop.core.compress.CompressionInputStream;
@@ -29,7 +30,6 @@ import org.apache.hop.core.file.EncodingType;
 import org.apache.hop.core.io.CountingInputStream;
 import org.apache.hop.core.logging.ILogChannel;
 import org.apache.hop.core.util.Utils;
-import org.apache.hop.core.vfs.HopVfs;
 import org.apache.hop.pipeline.transform.BaseTransform;
 import org.apache.hop.pipeline.transform.errorhandling.AbstractFileErrorHandler;
 import org.apache.hop.pipeline.transforms.file.IBaseFileInputReader;
@@ -59,6 +59,9 @@ public class TextFileInputReader implements IBaseFileInputReader {
 
   private long lastReportedVolumeIn;
 
+  /** Skip the header lines: the file has them and this read starts at the top of the file. */
+  private final boolean skipHeader;
+
   public TextFileInputReader(
       IBaseFileInputTransformControl transform,
       TextFileInputMeta meta,
@@ -80,21 +83,27 @@ public class TextFileInputReader implements IBaseFileInputReader {
           "This is a compressed file being handled by the " + provider.getName() + " provider");
     }
 
-    countingInputStream = new CountingInputStream(HopVfs.getInputStream(file));
+    // Running in parallel, a chunk of a large file is read up to its own lines only
+    TextFileChunk chunk = data.parallel ? data.chunk : null;
+    boolean ranged = chunk != null && !chunk.wholeFile();
+    skipHeader = meta.getContent().isHeader() && (!ranged || chunk.startsFile());
+
+    countingInputStream =
+        new CountingInputStream(
+            ranged
+                ? TextFileChunkPlan.open(chunk, data.readAhead)
+                : data.readAhead.openWholeFile(file));
     in = provider.createInputStream(countingInputStream);
 
     in.nextEntry();
 
     BufferedInputStream inStream = new BufferedInputStream(in, BUFFER_SIZE_INPUT_STREAM);
-    BOMDetector bom = new BOMDetector(inStream);
 
-    if (bom.bomExist()) {
-      // if BOM exist, use it instead defined charset
-      isr = new InputStreamReader(inStream, bom.getCharset());
-    } else if (!Utils.isEmpty(meta.getEncoding())) {
-      isr = new InputStreamReader(inStream, meta.getEncoding());
+    if (ranged && !chunk.startsFile()) {
+      // No byte order mark in the middle of a file: use the encoding found at its start
+      isr = new InputStreamReader(inStream, chunk.charset());
     } else {
-      isr = new InputStreamReader(inStream);
+      isr = openReader(inStream);
     }
 
     String encoding = isr.getEncoding();
@@ -103,8 +112,20 @@ public class TextFileInputReader implements IBaseFileInputReader {
     readInitial();
   }
 
+  private InputStreamReader openReader(BufferedInputStream inStream) throws IOException {
+    BOMDetector bom = new BOMDetector(inStream);
+    if (bom.bomExist()) {
+      // if BOM exist, use it instead defined charset
+      return new InputStreamReader(inStream, bom.getCharset());
+    } else if (!Utils.isEmpty(meta.getEncoding())) {
+      return new InputStreamReader(inStream, meta.getEncoding());
+    } else {
+      return new InputStreamReader(inStream);
+    }
+  }
+
   protected void readInitial() throws Exception {
-    data.doneWithHeader = !meta.getContent().isHeader();
+    data.doneWithHeader = !skipHeader;
     // /////////////////////////////////////////////////////////////////////////////
     // Read the first lines...
 
@@ -117,7 +138,7 @@ public class TextFileInputReader implements IBaseFileInputReader {
      * OK, read a number of lines in the buffer: The header rows The nr rows in the page : optional The footer rows
      */
     int bufferSize = 1;
-    bufferSize += meta.getContent().isHeader() ? meta.getContent().getNrHeaderLines() : 0;
+    bufferSize += skipHeader ? meta.getContent().getNrHeaderLines() : 0;
     bufferSize +=
         meta.getContent().isLayoutPaged()
             ? meta.getContent().getNrLinesPerPage()
@@ -150,7 +171,7 @@ public class TextFileInputReader implements IBaseFileInputReader {
 
     for (int i = 0; i < bufferSize && !data.doneReading; i++) {
       boolean wasNotFiltered =
-          tryToReadLine(!meta.getContent().isHeader() || i >= meta.getContent().getNrHeaderLines());
+          tryToReadLine(!skipHeader || i >= meta.getContent().getNrHeaderLines());
       if (!wasNotFiltered) {
         // grab another line, this one got filtered
         bufferSize++;

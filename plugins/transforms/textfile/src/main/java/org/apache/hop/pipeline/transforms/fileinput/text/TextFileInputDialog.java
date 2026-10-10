@@ -226,6 +226,14 @@ public class TextFileInputDialog extends BaseTransformDialog
 
   private Text wLimit;
 
+  private Button wRunningInParallel;
+
+  private Label wlChunkSize;
+
+  private TextVar wChunkSize;
+
+  private TextVar wReadAheadBlocks;
+
   private Button wDateLenient;
 
   private CCombo wDateLocale;
@@ -426,6 +434,9 @@ public class TextFileInputDialog extends BaseTransformDialog
     wWraps.addSelectionListener(lsFlags);
     wLayoutPaged.addSelectionListener(lsFlags);
     wAccFilenames.addSelectionListener(lsFlags);
+    wEnclBreaks.addSelectionListener(lsFlags);
+    wRunningInParallel.addSelectionListener(lsFlags);
+    wCompression.addModifyListener(e -> setFlags());
 
     // When ignoring manual fields, refresh fields from schema one last time
     wIgnoreFields.addSelectionListener(
@@ -1424,13 +1435,71 @@ public class TextFileInputDialog extends BaseTransformDialog
     fdLimit.right = new FormAttachment(100, 0);
     wLimit.setLayoutData(fdLimit);
 
+    // Running in parallel: the copies share the files in chunks
+    Label wlRunningInParallel = new Label(wContentComp, SWT.RIGHT);
+    wlRunningInParallel.setText(
+        BaseMessages.getString(PKG, "TextFileInputDialog.RunningInParallel.Label"));
+    PropsUi.setLook(wlRunningInParallel);
+    FormData fdlRunningInParallel = new FormData();
+    fdlRunningInParallel.left = new FormAttachment(0, 0);
+    fdlRunningInParallel.top = new FormAttachment(wLimit, margin);
+    fdlRunningInParallel.right = new FormAttachment(middle, -margin);
+    wlRunningInParallel.setLayoutData(fdlRunningInParallel);
+    wRunningInParallel = new Button(wContentComp, SWT.CHECK);
+    wRunningInParallel.setToolTipText(
+        BaseMessages.getString(PKG, "TextFileInputDialog.RunningInParallel.Tooltip"));
+    PropsUi.setLook(wRunningInParallel);
+    FormData fdRunningInParallel = new FormData();
+    fdRunningInParallel.left = new FormAttachment(middle, 0);
+    fdRunningInParallel.top = new FormAttachment(wlRunningInParallel, 0, SWT.CENTER);
+    wRunningInParallel.setLayoutData(fdRunningInParallel);
+
+    wlChunkSize = new Label(wContentComp, SWT.RIGHT);
+    wlChunkSize.setText(BaseMessages.getString(PKG, "TextFileInputDialog.ChunkSize.Label"));
+    PropsUi.setLook(wlChunkSize);
+    FormData fdlChunkSize = new FormData();
+    fdlChunkSize.left = new FormAttachment(0, 0);
+    fdlChunkSize.top = new FormAttachment(wRunningInParallel, margin);
+    fdlChunkSize.right = new FormAttachment(middle, -margin);
+    wlChunkSize.setLayoutData(fdlChunkSize);
+    wChunkSize = new TextVar(variables, wContentComp, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
+    wChunkSize.setToolTipText(BaseMessages.getString(PKG, "TextFileInputDialog.ChunkSize.Tooltip"));
+    PropsUi.setLook(wChunkSize);
+    wChunkSize.addModifyListener(lsMod);
+    FormData fdChunkSize = new FormData();
+    fdChunkSize.left = new FormAttachment(middle, 0);
+    fdChunkSize.top = new FormAttachment(wRunningInParallel, margin);
+    fdChunkSize.right = new FormAttachment(100, 0);
+    wChunkSize.setLayoutData(fdChunkSize);
+
+    // Read-ahead: blocks of a file on remote storage fetched ahead over several connections
+    Label wlReadAheadBlocks = new Label(wContentComp, SWT.RIGHT);
+    wlReadAheadBlocks.setText(
+        BaseMessages.getString(PKG, "TextFileInputDialog.ReadAheadBlocks.Label"));
+    PropsUi.setLook(wlReadAheadBlocks);
+    FormData fdlReadAheadBlocks = new FormData();
+    fdlReadAheadBlocks.left = new FormAttachment(0, 0);
+    fdlReadAheadBlocks.top = new FormAttachment(wChunkSize, margin);
+    fdlReadAheadBlocks.right = new FormAttachment(middle, -margin);
+    wlReadAheadBlocks.setLayoutData(fdlReadAheadBlocks);
+    wReadAheadBlocks = new TextVar(variables, wContentComp, SWT.SINGLE | SWT.LEFT | SWT.BORDER);
+    wReadAheadBlocks.setToolTipText(
+        BaseMessages.getString(PKG, "TextFileInputDialog.ReadAheadBlocks.Tooltip"));
+    PropsUi.setLook(wReadAheadBlocks);
+    wReadAheadBlocks.addModifyListener(lsMod);
+    FormData fdReadAheadBlocks = new FormData();
+    fdReadAheadBlocks.left = new FormAttachment(middle, 0);
+    fdReadAheadBlocks.top = new FormAttachment(wChunkSize, margin);
+    fdReadAheadBlocks.right = new FormAttachment(100, 0);
+    wReadAheadBlocks.setLayoutData(fdReadAheadBlocks);
+
     // Date Lenient checkbox
     Label wlDateLenient = new Label(wContentComp, SWT.RIGHT);
     wlDateLenient.setText(BaseMessages.getString(PKG, "TextFileInputDialog.DateLenient.Label"));
     PropsUi.setLook(wlDateLenient);
     FormData fdlDateLenient = new FormData();
     fdlDateLenient.left = new FormAttachment(0, 0);
-    fdlDateLenient.top = new FormAttachment(wLimit, margin);
+    fdlDateLenient.top = new FormAttachment(wReadAheadBlocks, margin);
     fdlDateLenient.right = new FormAttachment(middle, -margin);
     wlDateLenient.setLayoutData(fdlDateLenient);
     wDateLenient = new Button(wContentComp, SWT.CHECK);
@@ -2356,6 +2425,36 @@ public class TextFileInputDialog extends BaseTransformDialog
     wFields.setEnabled(!wIgnoreFields.getSelection());
     wGet.setEnabled(!wIgnoreFields.getSelection());
     wMinWidth.setEnabled(!wIgnoreFields.getSelection());
+
+    setParallelFlags();
+  }
+
+  /**
+   * Reading in parallel and the settings that need each file read from its first line exclude each
+   * other: while one is on, the other can't be switched on. A setting already on stays changeable,
+   * so a combination loaded from a file can be undone here.
+   */
+  private void setParallelFlags() {
+    boolean parallel = wRunningInParallel.getSelection();
+    // Empty means no compression, as the transform reads it
+    String compression = wCompression.getText();
+    boolean compressed = !Utils.isEmpty(compression) && !"None".equalsIgnoreCase(compression);
+    boolean blocking =
+        wFooter.getSelection()
+            || wWraps.getSelection()
+            || wLayoutPaged.getSelection()
+            || (wInclRownum.getSelection() && wRownumByFile.getSelection())
+            || compressed;
+    wRunningInParallel.setEnabled(parallel || !blocking);
+    wlChunkSize.setEnabled(parallel);
+    wChunkSize.setEnabled(parallel);
+
+    for (Button setting : new Button[] {wFooter, wWraps, wLayoutPaged}) {
+      setting.setEnabled(!parallel || setting.getSelection());
+    }
+    wRownumByFile.setEnabled(
+        wInclRownum.getSelection() && (!parallel || wRownumByFile.getSelection()));
+    wCompression.setEnabled(!parallel || compressed);
   }
 
   /**
@@ -2407,6 +2506,9 @@ public class TextFileInputDialog extends BaseTransformDialog
     wEnclosure.setText(Const.NVL(meta.getContent().getEnclosure(), ""));
     wEscape.setText(Const.NVL(meta.getContent().getEscapeCharacter(), ""));
     wEnclBreaks.setSelection(meta.getContent().isBreakInEnclosureAllowed());
+    wRunningInParallel.setSelection(meta.getContent().isRunningInParallel());
+    wChunkSize.setText(Const.NVL(meta.getContent().getChunkSize(), ""));
+    wReadAheadBlocks.setText(Const.NVL(meta.getContent().getReadAheadBlocks(), ""));
     wNullIfNotEnclosed.setSelection(meta.getContent().isNullIfNotEnclosed());
     wPrependFileName.setSelection(meta.getContent().isPrependFileName());
     wHeader.setSelection(meta.getContent().isHeader());
@@ -2616,6 +2718,9 @@ public class TextFileInputDialog extends BaseTransformDialog
     meta.getContent().setEnclosure(wEnclosure.getText());
     meta.getContent().setEscapeCharacter(wEscape.getText());
     meta.getContent().setBreakInEnclosureAllowed(wEnclBreaks.getSelection());
+    meta.getContent().setRunningInParallel(wRunningInParallel.getSelection());
+    meta.getContent().setChunkSize(wChunkSize.getText());
+    meta.getContent().setReadAheadBlocks(wReadAheadBlocks.getText());
     meta.getContent().setNullIfNotEnclosed(wNullIfNotEnclosed.getSelection());
     meta.getContent().setRowLimit(Const.toLongExpanded(wLimit.getText(), 0L));
     meta.getContent().setFilenameField(wInclFilenameField.getText());
